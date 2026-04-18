@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { explainCode } from './ai/gemini';
+import { ExplainPanel } from './panels/ExplainPanel';
 import { SessionTreeProvider } from './views/SessionTreeProvider';
 
 const SECRET_KEY = 'explainable.geminiApiKey';
@@ -53,8 +54,7 @@ export function activate(context: vscode.ExtensionContext) {
         const apiKey = await getApiKey(context);
         const result = await explainCode(selectedText, language, fileContext, apiKey);
         console.log('[Explainable] Gemini result:', result);
-        // TODO Phase 3: ExplainPanel.createOrShow(context, result, language, sessionProvider);
-        vscode.window.showInformationMessage('Explainable: Explanation ready!');
+        ExplainPanel.createOrShow(context, result, language, sessionProvider);
       } catch (err) {
         vscode.window.showErrorMessage(
           `Explainable: ${err instanceof Error ? err.message : 'Unknown error'}`
@@ -80,8 +80,7 @@ export function activate(context: vscode.ExtensionContext) {
         const apiKey = await getApiKey(context);
         const result = await explainCode(fileContent, language, fileContent, apiKey);
         console.log('[Explainable] Gemini result:', result);
-        // TODO Phase 3: ExplainPanel.createOrShow(context, result, language, sessionProvider);
-        vscode.window.showInformationMessage('Explainable: Explanation ready!');
+        ExplainPanel.createOrShow(context, result, language, sessionProvider);
       } catch (err) {
         vscode.window.showErrorMessage(
           `Explainable: ${err instanceof Error ? err.message : 'Unknown error'}`
