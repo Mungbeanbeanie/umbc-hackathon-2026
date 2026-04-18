@@ -35,15 +35,20 @@ Instructions:
   b) Describe the key steps or components inside the construct. 
   c) Explain how it fits into the larger file or project context, if relevant. Do NOT explain internal logic, individual conditions, or implementation details.
   DO NOT exceed 5 sentences in total, and keep it as concise as possible while still being clear.
+3. "scaffold": A working interactive ${language} logic scaffold that a student can manipulate to better understand the construct.
+    - It should have the same outer structure as the original code (e.g. if the original code is a for-loop, the scaffold should also be a for-loop).
+    - The scaffold should be runnable code that demonstrates the same construct, but with all internal logic stripped out and replaced with placeholders or simplified examples.
+    - The scaffold should be as minimal as possible while still being a valid example of the construct. Remove any extra functions, conditions, or logic that are not essential to demonstrating the construct.
+    - The scaffold should be runnable and produce visible output, but it does NOT need to do anything meaningful. It is meant for educational purposes only.
+    - If the original code is too complex to create a runnable scaffold, create a simplified version that captures the essence of the construct without all the complexity.
+    - Include comments to help explain the structure and syntax of the scaffold
+4. "runnable": A fully working ${language} program skeleton that allows the selected construct to be executed via the scaffold.
+  For example, if a user is asking about a for-loop, the "runnable" code should include a complete program with the necessary setup to run the for-loop scaffold (e.g. if it's a Python for-loop, include the necessary imports and a main function to execute the loop). 
+  The runnable code should be functional and demonstrate the construct in an executable way. 
+  The user will never see runnable, so it can be more verbose and include extra setup or helper functions if needed to make the scaffold runnable
+  demonstrates the SAME construct. 
 
-In 2-3 sentences, describe what the SELECTED CODE does at a high level. Name the outer construct (loop, class, function, etc.) and its overall purpose. Do NOT explain internal logic, individual conditions, or implementation details.
-3. "scaffold": A visual outline of the construct for display only — NOT runnable code. Show the outer shell (opening line + closing brace/keyword) with the entire body replaced by a plain-English comment describing what goes inside. Use the same construct type as the original. Maximum 5 lines. Example for a for-loop: "for (int i = 0; i < n; i++) {\n    // repeat this block n times\n}"
-4. "runnable": A fully working ${language} program that demonstrates the SAME construct. Rules:
-   - Use the same construct type (for-loop → for-loop, class → class, etc.)
-   - Use small hardcoded values (loop 3 times, a list of 3 items, etc.)
-   - The body does ONE simple thing (print the counter, print each item, etc.)
-   - No imports unless absolutely required by the language, no helper functions
-   - Must run to completion and produce visible output. Maximum 10 lines.
+The program will take the logic that the user manipulated in the scaffold and insert it into the runnable skeleton to create a complete program that they can run and test, based on the original code they asked about.
 
 Respond with ONLY this JSON (no markdown fences, no extra keys):
 {"title": "...", "explanation": "...", "scaffold": "...", "runnable": "..."}`;
