@@ -87,9 +87,10 @@ export class ExplainPanel {
     content="default-src 'none'; style-src 'unsafe-inline'; script-src 'nonce-${nonce}';">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
+    html { height: 100%; }
     body {
       display: flex; align-items: center; justify-content: center;
-      height: 100vh;
+      height: 100%;
       font-family: var(--vscode-font-family, sans-serif);
       background: var(--vscode-editor-background);
       color: var(--vscode-editor-foreground);
@@ -177,10 +178,11 @@ export class ExplainPanel {
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
+    html { height: 100%; }
     body {
       display: flex;
       flex-direction: column;
-      height: 100vh;
+      height: 100%;
       font-family: var(--vscode-font-family, sans-serif);
       font-size: var(--vscode-font-size, 13px);
       background: var(--vscode-editor-background);
