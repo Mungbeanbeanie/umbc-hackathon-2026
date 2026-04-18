@@ -59,9 +59,9 @@ export function activate(context: vscode.ExtensionContext) {
             const result = await explainCode(selectedText, language, fileContext, apiKey);
             ExplainPanel.createOrShow(context, result, language, sessionProvider);
           } catch (err) {
-            vscode.window.showErrorMessage(
-              `Explainable: ${err instanceof Error ? err.message : 'Unknown error'}`
-            );
+            const message = err instanceof Error ? err.message : 'Unknown error';
+            ExplainPanel.showError(message);
+            vscode.window.showErrorMessage(`Explainable: ${message}`);
           }
         }
       );
@@ -94,9 +94,9 @@ export function activate(context: vscode.ExtensionContext) {
             const result = await explainCode(fileContent, language, fileContent, apiKey);
             ExplainPanel.createOrShow(context, result, language, sessionProvider);
           } catch (err) {
-            vscode.window.showErrorMessage(
-              `Explainable: ${err instanceof Error ? err.message : 'Unknown error'}`
-            );
+            const message = err instanceof Error ? err.message : 'Unknown error';
+            ExplainPanel.showError(message);
+            vscode.window.showErrorMessage(`Explainable: ${message}`);
           }
         }
       );

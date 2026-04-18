@@ -206,6 +206,16 @@ export class ExplainPanel {
     ExplainPanel.currentPanel._panel.title = `Explainable: ${language}`;
   }
 
+  /** Clears the spinner and shows an error message. */
+  static showError(message: string): void {
+    if (!ExplainPanel.currentPanel) { return; }
+    const ep = ExplainPanel.currentPanel;
+    const msg = { type: 'error', message };
+    ep._pendingMsg = msg;
+    ep._lastMsg = msg;
+    ep._panel.webview.postMessage(msg);
+  }
+
   /** Called once the API result is ready. Updates content via postMessage — no HTML replacement. */
   static createOrShow(
     _context: vscode.ExtensionContext,
@@ -418,6 +428,12 @@ export class ExplainPanel {
     <p id="loading-msg">Analyzing code&hellip;</p>
   </div>
 
+  <!-- Error state -->
+  <div id="error-state" style="display:none; flex-direction:column; align-items:center; justify-content:center; flex:1; gap:10px; padding:24px; opacity:0.85;">
+    <div style="font-size:20px;">&#x26A0;</div>
+    <div id="error-msg" style="text-align:center; color:var(--vscode-terminal-ansiRed,#f48771);"></div>
+  </div>
+
   <!-- Content state (hidden until update message) -->
   <div id="content">
     <header>
@@ -448,6 +464,8 @@ export class ExplainPanel {
 
     const loadingEl   = document.getElementById('loading');
     const loadingMsg  = document.getElementById('loading-msg');
+    const errorStateEl = document.getElementById('error-state');
+    const errorMsgEl   = document.getElementById('error-msg');
     const contentEl   = document.getElementById('content');
     const headerEl    = document.getElementById('header');
     const explanationEl = document.getElementById('explanation');
@@ -504,7 +522,16 @@ export class ExplainPanel {
       if (msg.type === 'loading') {
         loadingMsg.textContent = 'Analyzing ' + (msg.language || '') + ' code\u2026';
         contentEl.style.display = 'none';
+        errorStateEl.style.display = 'none';
         loadingEl.style.display = 'flex';
+        return;
+      }
+
+      if (msg.type === 'error') {
+        loadingEl.style.display = 'none';
+        contentEl.style.display = 'none';
+        errorMsgEl.textContent = msg.message || 'An error occurred.';
+        errorStateEl.style.display = 'flex';
         return;
       }
 
