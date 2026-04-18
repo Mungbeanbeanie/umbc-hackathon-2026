@@ -1,0 +1,31 @@
+Codemap Scan Report — 2026-04-18
+================================
+
+Files scanned: 4
+  src/extension.ts
+  src/views/SessionTreeProvider.ts
+  src/test/extension.test.ts
+  package.json
+
+Status: INITIAL GENERATION (no previous codemaps to diff)
+
+New codemaps created:
+  docs/CODEMAPS/architecture.md
+  docs/CODEMAPS/frontend.md
+  docs/CODEMAPS/dependencies.md
+
+New dependencies detected:
+  - vscode (peer, runtime)
+  - typescript ^5.9.3
+  - eslint + typescript-eslint
+  - @vscode/test-cli + @vscode/test-electron
+
+Architecture notes:
+  - VS Code extension scaffold (TypeScript)
+  - 2 commands registered: explainSelection, explainFile
+  - 1 tree view: explainableSessions (SessionTreeProvider)
+  - Gemini API integration pending (Phase 2)
+  - ExplainPanel webview pending (Phase 3)
+  - Session persistence pending (Phase 5)
+
+Staleness warnings: none (initial scan)
