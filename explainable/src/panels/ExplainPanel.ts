@@ -1,5 +1,6 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
+import hljs from 'highlight.js';
 import { GeminiResult } from '../ai/gemini';
 import { SessionTreeProvider } from '../views/SessionTreeProvider';
 import { escapeHtml, getNonce } from '../utils/htmlUtils';
@@ -163,7 +164,26 @@ export class ExplainPanel {
   private _getHtml(result: GeminiResult, label: string, language: string, runnable = ''): string {
     const nonce = getNonce();
     const explanation = escapeHtml(result.explanation);
-    const scaffold = escapeHtml(result.scaffold);
+
+    const hljsLangAlias: Record<string, string> = {
+      python3: 'python',
+      javascriptreact: 'javascript',
+      typescriptreact: 'typescript',
+      shellscript: 'bash',
+      'objective-c': 'objectivec',
+    };
+    const hljsLang = hljsLangAlias[language] ?? language;
+    let highlightedScaffold: string;
+    try {
+      if (hljs.getLanguage(hljsLang)) {
+        // ignoreIllegals: true prevents abort on partial/LLM-generated scaffolds
+        highlightedScaffold = hljs.highlight(result.scaffold, { language: hljsLang, ignoreIllegals: true }).value;
+      } else {
+        highlightedScaffold = hljs.highlightAuto(result.scaffold).value;
+      }
+    } catch {
+      highlightedScaffold = escapeHtml(result.scaffold);
+    }
 
     return `<!DOCTYPE html>
 <html lang="en">
@@ -232,23 +252,41 @@ export class ExplainPanel {
       white-space: pre-wrap;
     }
 
-    #scaffold {
+    .code-block {
       flex: 1;
-      resize: none;
+      overflow: auto;
       background: var(--vscode-input-background, #1e1e1e);
-      color: var(--vscode-input-foreground, #d4d4d4);
       border: 1px solid var(--vscode-input-border, #3c3c3c);
       border-radius: 4px;
       padding: 10px;
       font-family: var(--vscode-editor-font-family, monospace);
       font-size: var(--vscode-editor-font-size, 13px);
       line-height: 1.5;
+      margin: 0;
     }
 
-    #scaffold:focus {
-      outline: none;
-      border-color: var(--vscode-focusBorder, #007fd4);
+    .code-block code {
+      font-family: inherit;
+      font-size: inherit;
+      color: #abb2bf;
     }
+
+    /* One Dark theme for highlight.js tokens */
+    .hljs-keyword, .hljs-selector-tag, .hljs-tag { color: #c678dd; font-weight: bold; }
+    .hljs-string, .hljs-attr, .hljs-template-tag { color: #98c379; }
+    .hljs-comment, .hljs-quote { color: #5c6370; font-style: italic; }
+    .hljs-number, .hljs-literal, .hljs-type { color: #d19a66; }
+    .hljs-title, .hljs-section, .hljs-name { color: #61afef; }
+    .hljs-class .hljs-title, .hljs-title.class_ { color: #e5c07b; }
+    .hljs-built_in, .hljs-builtin-name { color: #56b6c2; }
+    .hljs-variable, .hljs-template-variable { color: #e06c75; }
+    .hljs-params { color: #abb2bf; }
+    .hljs-operator, .hljs-punctuation { color: #abb2bf; }
+    .hljs-meta, .hljs-meta .hljs-keyword { color: #e06c75; }
+    .hljs-property { color: #e06c75; }
+    .hljs-regexp { color: #98c379; }
+    .hljs-symbol, .hljs-bullet { color: #d19a66; }
+    .hljs-link { color: #61afef; text-decoration: underline; }
 
     #runBtn {
       display: flex;
@@ -308,7 +346,7 @@ export class ExplainPanel {
     </div>
     <div class="pane">
       <div class="pane-title">&#x25B6; Try it yourself</div>
-      <textarea id="scaffold" spellcheck="false">${scaffold}</textarea>
+      <pre class="code-block"><code>${highlightedScaffold}</code></pre>
       <button id="runBtn">&#x25B6; Run</button>
       <div class="output-label">Output</div>
       <pre id="output">Press Run to see output...</pre>
