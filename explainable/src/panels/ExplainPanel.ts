@@ -1,12 +1,19 @@
 import * as vscode from 'vscode';
 import { GeminiResult } from '../ai/gemini';
-import { runCode } from '../execution/runner';
 import { SessionTreeProvider } from '../views/SessionTreeProvider';
+import { escapeHtml } from '../utils/htmlUtils';
+import { runCode } from '../execution/runner';
 
 interface WebviewMessage {
   type: 'run';
   code: string;
   language: string;
+}
+
+interface RunOutput {
+  type: 'output';
+  stdout: string;
+  stderr: string;
 }
 
 export class ExplainPanel {
@@ -21,8 +28,16 @@ export class ExplainPanel {
     this._panel.webview.onDidReceiveMessage(
       async (msg: WebviewMessage) => {
         if (msg.type === 'run') {
-          const result = await runCode(msg.code, msg.language);
-          this._panel.webview.postMessage({ type: 'runResult', result });
+          // TODO Phase 4: replace stub with real runner
+          // import { runCode } from '../execution/runner';
+          // const output = await runCode(msg.code, msg.language);
+          // this._panel.webview.postMessage({ type: 'output', ...output });
+          const response: RunOutput = {
+            type: 'output',
+            stdout: '[Code execution coming in Phase 4]',
+            stderr: '',
+          };
+          this._panel.webview.postMessage(response);
         }
       },
       undefined,
@@ -31,12 +46,12 @@ export class ExplainPanel {
   }
 
   static createOrShow(
-    _context: vscode.ExtensionContext,
+    context: vscode.ExtensionContext,
     result: GeminiResult,
     language: string,
     sessionProvider: SessionTreeProvider,
-    addToHistory = true,
   ): void {
+    void context;
     const column = vscode.ViewColumn.Beside;
 
     if (ExplainPanel.currentPanel) {
@@ -56,15 +71,13 @@ export class ExplainPanel {
       ExplainPanel.currentPanel._update(result, language);
     }
 
-    if (addToHistory) {
-      sessionProvider.addSession({
-        label: `${language} — ${new Date().toLocaleTimeString()}`,
-        timestamp: Date.now(),
-        explanation: result.explanation,
-        scaffold: result.scaffold,
-        language,
-      });
-    }
+    sessionProvider.addSession({
+      label: `${language} — ${new Date().toLocaleTimeString()}`,
+      timestamp: Date.now(),
+      explanation: result.explanation,
+      scaffold: result.scaffold,
+      language,
+    });
   }
 
   private _update(result: GeminiResult, language: string): void {
@@ -205,13 +218,6 @@ export class ExplainPanel {
       font-size: 12px;
       white-space: pre-wrap;
     }
-    #output.exit-error { color: var(--vscode-terminal-ansiRed, #f48771); }
-    #exit-code {
-      font-size: 11px;
-      margin-top: 4px;
-      color: var(--vscode-descriptionForeground);
-    }
-    #exit-code.fail { color: var(--vscode-terminal-ansiRed, #f48771); }
   </style>
 </head>
 <body>
@@ -227,49 +233,29 @@ export class ExplainPanel {
       <button id="runBtn">&#x25B6; Run</button>
       <div class="output-label">Output</div>
       <pre id="output">Press Run to see output...</pre>
-      <div id="exit-code"></div>
     </div>
   </div>
   <script nonce="${nonce}">
     const vscode = acquireVsCodeApi();
     const language = ${JSON.stringify(language)};
 
-    const runBtn = document.getElementById('runBtn');
-    const scaffoldEl = document.getElementById('scaffold');
-    const outputEl = document.getElementById('output');
-    const exitCodeEl = document.getElementById('exit-code');
-
-    runBtn.addEventListener('click', () => {
-      runBtn.disabled = true;
-      runBtn.textContent = 'Running...';
-      outputEl.textContent = '';
-      outputEl.className = '';
-      exitCodeEl.textContent = '';
-      exitCodeEl.className = '';
-      vscode.postMessage({ type: 'run', code: scaffoldEl.value, language });
+    document.getElementById('runBtn').addEventListener('click', () => {
+      const code = document.getElementById('scaffold').value;
+      const btn = document.getElementById('runBtn');
+      btn.disabled = true;
+      btn.textContent = 'Running...';
+      document.getElementById('output').textContent = '';
+      vscode.postMessage({ type: 'run', code, language });
     });
 
     window.addEventListener('message', event => {
       const msg = event.data;
-      if (msg.type !== 'runResult') { return; }
-      const r = msg.result;
-
-      runBtn.disabled = false;
-      runBtn.innerHTML = '&#x25B6; Run';
-
-      if (r.error) {
-        outputEl.textContent = r.error;
-        outputEl.className = 'exit-error';
-        exitCodeEl.textContent = '';
-        exitCodeEl.className = '';
-      } else {
-        const parts = [];
-        if (r.stdout) { parts.push(r.stdout); }
-        if (r.stderr) { parts.push('--- stderr ---\\n' + r.stderr); }
-        outputEl.textContent = parts.join('\\n') || '(no output)';
-        outputEl.className = r.exitCode !== 0 ? 'exit-error' : '';
-        exitCodeEl.textContent = 'exit ' + r.exitCode;
-        exitCodeEl.className = r.exitCode === 0 ? '' : 'fail';
+      if (msg.type === 'output') {
+        const out = document.getElementById('output');
+        const btn = document.getElementById('runBtn');
+        out.textContent = msg.stdout + (msg.stderr ? '\\nSTDERR:\\n' + msg.stderr : '');
+        btn.disabled = false;
+        btn.textContent = '&#x25B6; Run';
       }
     });
   </script>
