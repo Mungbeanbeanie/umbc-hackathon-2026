@@ -1,71 +1,65 @@
-# explainable README
+# Explainable
 
-This is the README for your extension "explainable". After writing up a brief description, we recommend including the following sections.
+> Understand your code — contextual explanations and runnable sandboxes for CS students, inside VS Code.
+
+CS students increasingly receive working code from AI tools without understanding what it does. Explainable intercepts the "I don't understand this" moment inside the editor itself: highlight code, get a plain-English explanation, and run a bare scaffold of the concept immediately — without leaving VS Code.
 
 ## Features
 
-Describe specific features of your extension including screenshots of your extension in action. Image paths are relative to this README file.
+### Explain a selection
+Highlight any code → right-click → **Explain this**
 
-For example if there is an image subfolder under your extension project workspace:
+A split panel opens beside your editor:
+- **Left pane** — plain-English explanation pitched at a beginner level, mentioning actual variable names from your code
+- **Right pane** — an editable scaffold of the same concept with `TODO` comments; click **Run** to execute it
 
-\!\[feature X\]\(images/feature-x.png\)
+### Explain a file
+Right-click any file in the Explorer → **Explain this file**
 
-> Tip: Many popular extensions utilize animations. This is an excellent way to show off your extension! We recommend short, focused animations that are easy to follow.
+Same split panel, scoped to the whole file.
+
+### Run the scaffold
+The right pane executes code locally using your installed runtime:
+
+Output and exit code appear below the Run button.
+
+### Session history
+Every explanation is saved to the **Explainable** activity bar panel for the current window. Click any entry to reopen that panel.
 
 ## Requirements
 
-If you have any requirements or dependencies, add a section describing those and how to install and configure them.
+- VS Code 1.116.0+
+- A **Gemini API key** (free at [aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey))
+- The runtime for whatever language you want to run (`python3`, `node`, etc.)
+
+## Getting Started
+
+1. Install the extension
+2. Open a file with code you want to understand
+3. Highlight a snippet and right-click → **Explain this**
+4. On first use, you'll be prompted to enter your Gemini API key — it's stored securely in VS Code's secret storage
+
+To clear your API key: open the Command Palette → **Explainable: Reset API Key**
+
+<!-- AUTO-GENERATED: scripts -->
+## Available Scripts
+
+| Command | Description |
+|---------|-------------|
+| `npm run compile` | Compile TypeScript to `out/` |
+| `npm run watch` | Compile in watch mode |
+| `npm run lint` | Run ESLint on `src/` |
+| `npm run pretest` | Compile + lint (runs before tests) |
+| `npm test` | Run the VS Code extension test suite |
+| `npm run vscode:prepublish` | Pre-publish build (compile) |
+<!-- END AUTO-GENERATED -->
 
 ## Extension Settings
 
-Include if your extension adds any VS Code settings through the `contributes.configuration` extension point.
-
-For example:
-
-This extension contributes the following settings:
-
-* `myExtension.enable`: Enable/disable this extension.
-* `myExtension.thing`: Set to `blah` to do something.
-
-## Known Issues
-
-Calling out known issues can help limit users opening duplicate issues against your extension.
+No configuration settings are required. The Gemini API key is stored in VS Code's built-in secret storage and prompted on first use.
 
 ## Release Notes
 
-Users appreciate release notes as you update your extension.
+### 0.0.1
 
-### 1.0.0
-
-Initial release of ...
-
-### 1.0.1
-
-Fixed issue #.
-
-### 1.1.0
-
-Added features X, Y, and Z.
-
----
-
-## Following extension guidelines
-
-Ensure that you've read through the extensions guidelines and follow the best practices for creating your extension.
-
-* [Extension Guidelines](https://code.visualstudio.com/api/references/extension-guidelines)
-
-## Working with Markdown
-
-You can author your README using Visual Studio Code. Here are some useful editor keyboard shortcuts:
-
-* Split the editor (`Cmd+\` on macOS or `Ctrl+\` on Windows and Linux).
-* Toggle preview (`Shift+Cmd+V` on macOS or `Shift+Ctrl+V` on Windows and Linux).
-* Press `Ctrl+Space` (Windows, Linux, macOS) to see a list of Markdown snippets.
-
-## For more information
-
-* [Visual Studio Code's Markdown Support](http://code.visualstudio.com/docs/languages/markdown)
-* [Markdown Syntax Reference](https://help.github.com/articles/markdown-basics/)
-
-**Enjoy!**
+Initial hackathon release — explain selection, explain file, runnable scaffold, session history, loading spinner, Gemini 2.5 Flash.
