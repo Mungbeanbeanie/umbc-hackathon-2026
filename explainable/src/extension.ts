@@ -41,6 +41,7 @@ export function activate(context: vscode.ExtensionContext) {
         return;
       }
       const selection = editor.selection;
+      
       if (selection.isEmpty) {
         vscode.window.showWarningMessage('No text selected. Highlight code first.');
         return;
