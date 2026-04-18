@@ -1,3 +1,4 @@
 explainable/out/
 explainable/node_modules/
 *.vsix
+./out
