@@ -113,13 +113,36 @@ export class ExplainPanel {
   private _disposables: vscode.Disposable[] = [];
   private _disposed = false;
   private _activeRun: RunHandle | null = null;
-  private _shellReady = false;
+  private _pendingMsg: unknown = null;
+  private _lastMsg: unknown = null;
 
   private constructor(panel: vscode.WebviewPanel) {
     this._panel = panel;
     this._panel.onDidDispose(() => this._dispose(), null, this._disposables);
 
+    this._panel.onDidChangeViewState(e => {
+      if (e.webviewPanel.visible && this._lastMsg) {
+        this._panel.webview.postMessage(this._lastMsg);
+      }
+    }, null, this._disposables);
+
     this._panel.webview.onDidReceiveMessage(async (msg: unknown) => {
+      const type = (msg as Record<string, unknown>)['type'];
+
+      if (type === 'ready') {
+        if (this._pendingMsg) {
+          this._panel.webview.postMessage(this._pendingMsg);
+          this._lastMsg = this._pendingMsg;
+          this._pendingMsg = null;
+        }
+        return;
+      }
+
+      if (type === 'requestRefresh') {
+        if (this._lastMsg) { this._panel.webview.postMessage(this._lastMsg); }
+        return;
+      }
+
       if (isOpenFileMsg(msg)) {
         try {
           const uri = vscode.Uri.parse(msg.uri);
@@ -162,25 +185,22 @@ export class ExplainPanel {
   static openLoading(context: vscode.ExtensionContext, language: string): void {
     void context;
     const column = vscode.ViewColumn.Beside;
+    const loadingMsg = { type: 'loading', language };
 
     if (ExplainPanel.currentPanel) {
-      ExplainPanel.currentPanel._panel.reveal(column);
-      ExplainPanel.currentPanel._panel.webview.postMessage({ type: 'loading', language });
+      const ep = ExplainPanel.currentPanel;
+      ep._panel.reveal(column);
+      ep._pendingMsg = loadingMsg;
+      ep._panel.webview.postMessage(loadingMsg);
     } else {
       const panel = vscode.window.createWebviewPanel(
         'explainablePanel', `Explainable: ${language}`, column,
         { enableScripts: true, retainContextWhenHidden: true },
       );
       const ep = new ExplainPanel(panel);
+      ep._pendingMsg = loadingMsg;
       ep._panel.webview.html = ExplainPanel._shellHtml();
-      ep._shellReady = true;
       ExplainPanel.currentPanel = ep;
-      // Brief delay so the webview DOM is ready before we post the loading message
-      setTimeout(() => {
-        if (!ep._disposed) {
-          ep._panel.webview.postMessage({ type: 'loading', language });
-        }
-      }, 50);
     }
 
     ExplainPanel.currentPanel._panel.title = `Explainable: ${language}`;
@@ -208,10 +228,8 @@ export class ExplainPanel {
       );
       const ep = new ExplainPanel(panel);
       ep._panel.webview.html = ExplainPanel._shellHtml();
-      ep._shellReady = true;
       ExplainPanel.currentPanel = ep;
-      // Wait for shell to load before sending update
-      setTimeout(() => { void ep._update(result, label, language); }, 50);
+      void ep._update(result, label, language);
     }
 
     if (addToHistory) {
@@ -229,7 +247,7 @@ export class ExplainPanel {
     this._panel.title = `Explainable: ${label}`;
     const links = await resolveSymbolLinks(result.explanation);
     if (this._disposed) { return; }
-    this._panel.webview.postMessage({
+    const msg = {
       type: 'update',
       label,
       explanation: result.explanation,
@@ -237,7 +255,10 @@ export class ExplainPanel {
       scaffold: result.scaffold,
       runnable: result.runnable ?? '',
       language,
-    });
+    };
+    this._pendingMsg = msg;
+    this._lastMsg = msg;
+    this._panel.webview.postMessage(msg);
   }
 
   /** Shell HTML — set exactly once per panel lifetime. All content arrives via postMessage. */
@@ -287,7 +308,15 @@ export class ExplainPanel {
       font-weight: 600; font-size: 14px;
       letter-spacing: 0.03em; opacity: 0.85;
       flex-shrink: 0;
+      display: flex; align-items: center; justify-content: space-between;
     }
+    #refreshBtn {
+      font-size: 11px; font-weight: 600;
+      background: none; border: 1px solid var(--vscode-panel-border, #555);
+      color: inherit; cursor: pointer; border-radius: 3px;
+      padding: 2px 8px; opacity: 0.6; letter-spacing: 0.04em;
+    }
+    #refreshBtn:hover { opacity: 1; }
 
     .split { display: flex; flex: 1; overflow: hidden; }
 
@@ -391,7 +420,10 @@ export class ExplainPanel {
 
   <!-- Content state (hidden until update message) -->
   <div id="content">
-    <header id="header"></header>
+    <header>
+      <span id="header"></span>
+      <button id="refreshBtn" title="Reload content">&#x21BB; Refresh</button>
+    </header>
     <div class="split">
       <div class="pane">
         <div class="pane-title">&#x1F4A1; What this does</div>
@@ -414,16 +446,20 @@ export class ExplainPanel {
   <script nonce="${nonce}">
     const vscode = acquireVsCodeApi();
 
-    const loadingEl  = document.getElementById('loading');
-    const loadingMsg = document.getElementById('loading-msg');
-    const contentEl  = document.getElementById('content');
-    const headerEl   = document.getElementById('header');
+    const loadingEl   = document.getElementById('loading');
+    const loadingMsg  = document.getElementById('loading-msg');
+    const contentEl   = document.getElementById('content');
+    const headerEl    = document.getElementById('header');
     const explanationEl = document.getElementById('explanation');
-    const scaffoldEl = document.getElementById('scaffold');
-    const resetBtn   = document.getElementById('resetBtn');
-    const runBtn     = document.getElementById('runBtn');
-    const outputEl   = document.getElementById('output');
-    const exitCodeEl = document.getElementById('exit-code');
+    const scaffoldEl  = document.getElementById('scaffold');
+    const resetBtn    = document.getElementById('resetBtn');
+    const refreshBtn  = document.getElementById('refreshBtn');
+    const runBtn      = document.getElementById('runBtn');
+    const outputEl    = document.getElementById('output');
+    const exitCodeEl  = document.getElementById('exit-code');
+
+    // Signal readiness so extension can deliver queued messages
+    vscode.postMessage({ type: 'ready' });
 
     let runnableCode = '';
     let currentLang  = '';
@@ -439,6 +475,7 @@ export class ExplainPanel {
     });
 
     resetBtn.addEventListener('click', () => { scaffoldEl.value = originalScaffold; });
+    refreshBtn.addEventListener('click', () => { vscode.postMessage({ type: 'requestRefresh' }); });
 
     // ── Clickable links in explanation ────────────────────────────────────────
     explanationEl.addEventListener('click', e => {
@@ -519,7 +556,6 @@ export class ExplainPanel {
 
   private _dispose(): void {
     this._disposed = true;
-    this._shellReady = false;
     this._activeRun?.kill();
     this._activeRun = null;
     ExplainPanel.currentPanel = undefined;
