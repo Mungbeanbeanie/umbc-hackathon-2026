@@ -491,8 +491,9 @@ export class ExplainPanel {
     const language = ${JSON.stringify(language)};
     const runnableCode = ${JSON.stringify(runnable)};
 
-    const runBtn    = document.getElementById('runBtn');
-    const outputEl  = document.getElementById('output');
+    const runBtn     = document.getElementById('runBtn');
+    const scaffoldEl = document.getElementById('scaffold');
+    const outputEl   = document.getElementById('output');
     const exitCodeEl = document.getElementById('exit-code');
 
     // Clickable file/symbol links
@@ -514,7 +515,9 @@ export class ExplainPanel {
       outputEl.className = '';
       exitCodeEl.textContent = '';
       exitCodeEl.className = '';
-      vscode.postMessage({ type: 'run', code: runnableCode, language });
+      // Inject the student's scaffold into the runnable template
+      const combined = runnableCode.replace('{{SCAFFOLD}}', scaffoldEl.value);
+      vscode.postMessage({ type: 'run', code: combined, language });
     });
 
     window.addEventListener('message', event => {
