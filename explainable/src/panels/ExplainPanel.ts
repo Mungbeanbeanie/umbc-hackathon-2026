@@ -1,3 +1,4 @@
+import * as path from 'path';
 import * as vscode from 'vscode';
 import { GeminiResult } from '../ai/gemini';
 import { SessionTreeProvider } from '../views/SessionTreeProvider';
@@ -8,12 +9,6 @@ interface WebviewMessage {
   type: 'run';
   code: string;
   language: string;
-}
-
-interface RunOutput {
-  type: 'output';
-  stdout: string;
-  stderr: string;
 }
 
 export class ExplainPanel {
@@ -28,16 +23,8 @@ export class ExplainPanel {
     this._panel.webview.onDidReceiveMessage(
       async (msg: WebviewMessage) => {
         if (msg.type === 'run') {
-          // TODO Phase 4: replace stub with real runner
-          // import { runCode } from '../execution/runner';
-          // const output = await runCode(msg.code, msg.language);
-          // this._panel.webview.postMessage({ type: 'output', ...output });
-          const response: RunOutput = {
-            type: 'output',
-            stdout: '[Code execution coming in Phase 4]',
-            stderr: '',
-          };
-          this._panel.webview.postMessage(response);
+          const result = await runCode(msg.code, msg.language);
+          this._panel.webview.postMessage({ type: 'runResult', result });
         }
       },
       undefined,
@@ -102,35 +89,35 @@ export class ExplainPanel {
   }
 
   static createOrShow(
-    context: vscode.ExtensionContext,
+    _context: vscode.ExtensionContext,
     result: GeminiResult,
     language: string,
     sessionProvider: SessionTreeProvider,
+    fileName = '',
     addToHistory = true,
   ): void {
-    void context;
     const column = vscode.ViewColumn.Beside;
+    const label = fileName
+      ? `${path.basename(fileName)} — ${result.title}`
+      : result.title;
 
     if (ExplainPanel.currentPanel) {
       ExplainPanel.currentPanel._panel.reveal(column);
-      ExplainPanel.currentPanel._update(result, language);
+      ExplainPanel.currentPanel._update(result, label, language);
     } else {
       const panel = vscode.window.createWebviewPanel(
         'explainablePanel',
-        `Explainable: ${language}`,
+        `Explainable: ${label}`,
         column,
-        {
-          enableScripts: true,
-          retainContextWhenHidden: true,
-        },
+        { enableScripts: true, retainContextWhenHidden: true },
       );
       ExplainPanel.currentPanel = new ExplainPanel(panel);
-      ExplainPanel.currentPanel._update(result, language);
+      ExplainPanel.currentPanel._update(result, label, language);
     }
 
     if (addToHistory) {
       sessionProvider.addSession({
-        label: `${language} — ${new Date().toLocaleTimeString()}`,
+        label,
         timestamp: Date.now(),
         explanation: result.explanation,
         scaffold: result.scaffold,
@@ -139,12 +126,12 @@ export class ExplainPanel {
     }
   }
 
-  private _update(result: GeminiResult, language: string): void {
-    this._panel.title = `Explainable: ${language}`;
-    this._panel.webview.html = this._getHtml(result, language);
+  private _update(result: GeminiResult, label: string, language: string): void {
+    this._panel.title = `Explainable: ${label}`;
+    this._panel.webview.html = this._getHtml(result, label, language);
   }
 
-  private _getHtml(result: GeminiResult, language: string): string {
+  private _getHtml(result: GeminiResult, label: string, language: string): string {
     const nonce = getNonce();
     const explanation = escapeHtml(result.explanation);
     const scaffold = escapeHtml(result.scaffold);
@@ -265,6 +252,9 @@ export class ExplainPanel {
       opacity: 0.6;
     }
 
+    #exit-code { font-size: 11px; margin-top: 2px; color: var(--vscode-descriptionForeground); }
+    #exit-code.fail { color: var(--vscode-terminal-ansiRed, #f48771); }
+    #output.has-error { color: var(--vscode-terminal-ansiRed, #f48771); }
     #output {
       flex: 0 0 120px;
       overflow-y: auto;
@@ -280,7 +270,7 @@ export class ExplainPanel {
   </style>
 </head>
 <body>
-  <header>Explainable &mdash; ${escapeHtml(language)}</header>
+  <header>Explainable &mdash; ${escapeHtml(label)}</header>
   <div class="split">
     <div class="pane">
       <div class="pane-title">&#x1F4A1; What this does</div>
@@ -292,29 +282,46 @@ export class ExplainPanel {
       <button id="runBtn">&#x25B6; Run</button>
       <div class="output-label">Output</div>
       <pre id="output">Press Run to see output...</pre>
+      <div id="exit-code"></div>
     </div>
   </div>
   <script nonce="${nonce}">
     const vscode = acquireVsCodeApi();
     const language = ${JSON.stringify(language)};
 
-    document.getElementById('runBtn').addEventListener('click', () => {
-      const code = document.getElementById('scaffold').value;
-      const btn = document.getElementById('runBtn');
-      btn.disabled = true;
-      btn.textContent = 'Running...';
-      document.getElementById('output').textContent = '';
-      vscode.postMessage({ type: 'run', code, language });
+    const runBtn = document.getElementById('runBtn');
+    const scaffoldEl = document.getElementById('scaffold');
+    const outputEl = document.getElementById('output');
+    const exitCodeEl = document.getElementById('exit-code');
+
+    runBtn.addEventListener('click', () => {
+      runBtn.disabled = true;
+      runBtn.textContent = 'Running...';
+      outputEl.textContent = '';
+      outputEl.className = '';
+      exitCodeEl.textContent = '';
+      exitCodeEl.className = '';
+      vscode.postMessage({ type: 'run', code: scaffoldEl.value, language });
     });
 
     window.addEventListener('message', event => {
       const msg = event.data;
-      if (msg.type === 'output') {
-        const out = document.getElementById('output');
-        const btn = document.getElementById('runBtn');
-        out.textContent = msg.stdout + (msg.stderr ? '\\nSTDERR:\\n' + msg.stderr : '');
-        btn.disabled = false;
-        btn.textContent = '&#x25B6; Run';
+      if (msg.type !== 'runResult') { return; }
+      const r = msg.result;
+      runBtn.disabled = false;
+      runBtn.innerHTML = '&#x25B6; Run';
+      if (r.error) {
+        outputEl.textContent = r.error;
+        outputEl.className = 'has-error';
+        exitCodeEl.textContent = '';
+      } else {
+        const parts = [];
+        if (r.stdout) { parts.push(r.stdout); }
+        if (r.stderr) { parts.push('--- stderr ---\\n' + r.stderr); }
+        outputEl.textContent = parts.join('\\n') || '(no output)';
+        outputEl.className = r.exitCode !== 0 ? 'has-error' : '';
+        exitCodeEl.textContent = 'exit ' + r.exitCode;
+        exitCodeEl.className = r.exitCode === 0 ? '' : 'fail';
       }
     });
   </script>

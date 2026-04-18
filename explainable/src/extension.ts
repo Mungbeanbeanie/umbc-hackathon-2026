@@ -59,7 +59,7 @@ export function activate(context: vscode.ExtensionContext) {
             const apiKey = await getApiKey(context);
             const result = await explainCode(selectedText, language, fileContext, apiKey);
             console.log('[Explainable] Gemini result:', result);
-            ExplainPanel.createOrShow(context, result, language, sessionProvider);
+            ExplainPanel.createOrShow(context, result, language, sessionProvider, editor.document.uri.fsPath);
           } catch (err) {
             vscode.window.showErrorMessage(
               `Explainable: ${err instanceof Error ? err.message : 'Unknown error'}`
@@ -91,7 +91,7 @@ export function activate(context: vscode.ExtensionContext) {
             const apiKey = await getApiKey(context);
             const result = await explainCode(fileContent, language, fileContent, apiKey);
             console.log('[Explainable] Gemini result:', result);
-            ExplainPanel.createOrShow(context, result, language, sessionProvider);
+            ExplainPanel.createOrShow(context, result, language, sessionProvider, filePath);
           } catch (err) {
             vscode.window.showErrorMessage(
               `Explainable: ${err instanceof Error ? err.message : 'Unknown error'}`
@@ -116,9 +116,10 @@ export function activate(context: vscode.ExtensionContext) {
       console.log('[Explainable] openSession:', session.label);
       ExplainPanel.createOrShow(
         context,
-        { explanation: session.explanation, scaffold: session.scaffold },
+        { title: session.label, explanation: session.explanation, scaffold: session.scaffold },
         session.language,
         sessionProvider,
+        '',
         false,
       );
     }
