@@ -12,7 +12,7 @@ const MODEL = 'gemini-2.5-flash';
 const SYSTEM_PROMPT = `You are a patient CS tutor helping students understand code they did not write. Be concise and clear, and 
 focus on the big picture topics.
 You must respond ONLY with valid JSON — no markdown, no prose outside the JSON object.
-The JSON must have exactly three keys: "title", "explanation", and "scaffold".`;
+The JSON must have exactly four keys: "title", "explanation", "scaffold", and "runnable".`;
 
 function buildPrompt(code: string, language: string, fileContext: string): string {
   const contextSnippet = fileContext.slice(0, 3000);
@@ -42,13 +42,12 @@ Instructions:
     - The scaffold should be runnable and produce visible output, but it does NOT need to do anything meaningful. It is meant for educational purposes only.
     - If the original code is too complex to create a runnable scaffold, create a simplified version that captures the essence of the construct without all the complexity.
     - Include comments to help explain the structure and syntax of the scaffold
-4. "runnable": A fully working ${language} program skeleton that allows the selected construct to be executed via the scaffold.
-  For example, if a user is asking about a for-loop, the "runnable" code should include a complete program with the necessary setup to run the for-loop scaffold (e.g. if it's a Python for-loop, include the necessary imports and a main function to execute the loop). 
-  The runnable code should be functional and demonstrate the construct in an executable way. 
-  The user will never see runnable, so it can be more verbose and include extra setup or helper functions if needed to make the scaffold runnable
-  demonstrates the SAME construct. 
-
-The program will take the logic that the user manipulated in the scaffold and insert it into the runnable skeleton to create a complete program that they can run and test, based on the original code they asked about.
+4. "runnable": A complete ${language} program that wraps the scaffold. Rules:
+  - Include all necessary setup (imports, variable declarations, main function/class boilerplate) so the scaffold can execute.
+  - Place the exact literal string {{SCAFFOLD}} at the single point where the scaffold code should be inserted — no other placeholder text.
+  - Do NOT include any copy of the scaffold logic itself; {{SCAFFOLD}} is the only stand-in for it.
+  - The surrounding setup should use small hardcoded values (e.g. a list of 3 items, a counter up to 5) that match what the scaffold expects.
+  - The user never sees runnable — it is only used at run time by replacing {{SCAFFOLD}} with whatever the student wrote in the scaffold editor.
 
 Respond with ONLY this JSON (no markdown fences, no extra keys):
 {"title": "...", "explanation": "...", "scaffold": "...", "runnable": "..."}`;
