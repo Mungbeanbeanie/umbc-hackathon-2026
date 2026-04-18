@@ -21,7 +21,7 @@ const LANG_MAP: Record<string, LangConfig> = {
   python:     { kind: 'spawn', cmd: 'python3', args: f => [f], ext: '.py' },
   python3:    { kind: 'spawn', cmd: 'python3', args: f => [f], ext: '.py' },
   javascript: { kind: 'spawn', cmd: 'node',    args: f => [f], ext: '.js' },
-  typescript: { kind: 'unsupported', reason: 'TypeScript: run with `npx ts-node <file>.ts`' },
+  typescript: { kind: 'spawn', cmd: 'npx', args: f => ['ts-node', f], ext: '.ts' },
   java:       { kind: 'unsupported', reason: 'Java: run with `javac <file>.java && java <ClassName>`' },
   json:       { kind: 'json' },
   html:       { kind: 'unsupported', reason: 'HTML: open in a browser or use the VS Code Live Preview extension.' },

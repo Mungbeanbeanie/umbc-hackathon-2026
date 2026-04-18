@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { explainCode } from './ai/gemini';
 import { ExplainPanel } from './panels/ExplainPanel';
 import { SessionTreeProvider, SessionItem } from './views/SessionTreeProvider';
+//add import for runner
 
 const SECRET_KEY = 'explainable.geminiApiKey';
 
@@ -41,7 +42,7 @@ export function activate(context: vscode.ExtensionContext) {
         return;
       }
       const selection = editor.selection;
-      
+
       if (selection.isEmpty) {
         vscode.window.showWarningMessage('No text selected. Highlight code first.');
         return;
@@ -59,7 +60,7 @@ export function activate(context: vscode.ExtensionContext) {
             const apiKey = await getApiKey(context);
             const result = await explainCode(selectedText, language, fileContext, apiKey);
             console.log('[Explainable] Gemini result:', result);
-            ExplainPanel.createOrShow(context, result, language, sessionProvider, editor.document.uri.fsPath);
+            ExplainPanel.createOrShow(context, result, language, sessionProvider);
           } catch (err) {
             vscode.window.showErrorMessage(
               `Explainable: ${err instanceof Error ? err.message : 'Unknown error'}`
@@ -91,7 +92,7 @@ export function activate(context: vscode.ExtensionContext) {
             const apiKey = await getApiKey(context);
             const result = await explainCode(fileContent, language, fileContent, apiKey);
             console.log('[Explainable] Gemini result:', result);
-            ExplainPanel.createOrShow(context, result, language, sessionProvider, filePath);
+            ExplainPanel.createOrShow(context, result, language, sessionProvider);
           } catch (err) {
             vscode.window.showErrorMessage(
               `Explainable: ${err instanceof Error ? err.message : 'Unknown error'}`
@@ -100,7 +101,7 @@ export function activate(context: vscode.ExtensionContext) {
         }
       );
     }
-  );
+  );// Command to reset API key end
 
   const resetApiKey = vscode.commands.registerCommand(
     'explainable.resetApiKey',
@@ -116,10 +117,9 @@ export function activate(context: vscode.ExtensionContext) {
       console.log('[Explainable] openSession:', session.label);
       ExplainPanel.createOrShow(
         context,
-        { title: session.label, explanation: session.explanation, scaffold: session.scaffold },
+        { explanation: session.explanation, scaffold: session.scaffold },
         session.language,
         sessionProvider,
-        '',
         false,
       );
     }
