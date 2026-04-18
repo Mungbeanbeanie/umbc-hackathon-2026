@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { explainCode } from './ai/gemini';
 import { ExplainPanel } from './panels/ExplainPanel';
-import { SessionTreeProvider } from './views/SessionTreeProvider';
+import { SessionTreeProvider, SessionItem } from './views/SessionTreeProvider';
 
 const SECRET_KEY = 'explainable.geminiApiKey';
 
@@ -99,8 +99,15 @@ export function activate(context: vscode.ExtensionContext) {
 
   const openSession = vscode.commands.registerCommand(
     'explainable.openSession',
-    () => {
-      // TODO Phase 5: re-open ExplainPanel for the clicked session
+    (session: SessionItem) => {
+      console.log('[Explainable] openSession:', session.label);
+      ExplainPanel.createOrShow(
+        context,
+        { explanation: session.explanation, scaffold: session.scaffold },
+        session.language,
+        sessionProvider,
+        false,
+      );
     }
   );
 

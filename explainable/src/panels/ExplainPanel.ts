@@ -49,6 +49,7 @@ export class ExplainPanel {
     result: GeminiResult,
     language: string,
     sessionProvider: SessionTreeProvider,
+    addToHistory = true,
   ): void {
     void context;
     const column = vscode.ViewColumn.Beside;
@@ -70,13 +71,15 @@ export class ExplainPanel {
       ExplainPanel.currentPanel._update(result, language);
     }
 
-    sessionProvider.addSession({
-      label: `${language} — ${new Date().toLocaleTimeString()}`,
-      timestamp: Date.now(),
-      explanation: result.explanation,
-      scaffold: result.scaffold,
-      language,
-    });
+    if (addToHistory) {
+      sessionProvider.addSession({
+        label: `${language} — ${new Date().toLocaleTimeString()}`,
+        timestamp: Date.now(),
+        explanation: result.explanation,
+        scaffold: result.scaffold,
+        language,
+      });
+    }
   }
 
   private _update(result: GeminiResult, language: string): void {
