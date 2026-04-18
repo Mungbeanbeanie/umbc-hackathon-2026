@@ -30,6 +30,11 @@
         "command": "explainable.resetApiKey",
         "title": "Reset API Key",
         "category": "Explainable"
+      },
+      {
+        "command": "explainable.openSession",
+        "title": "Open Session",
+        "category": "Explainable"
       }
     ],
     "menus": {
