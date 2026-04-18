@@ -362,6 +362,7 @@ export class ExplainPanel {
       overflow: hidden;
       padding: 16px;
       gap: 10px;
+      min-width: 0;
     }
 
     .pane + .pane {
@@ -412,21 +413,27 @@ export class ExplainPanel {
 
     #scaffold {
       flex: 1;
+      min-height: 80px;
       resize: none;
-      background: var(--vscode-editor-background, #1e1e1e);
-      color: var(--vscode-editor-foreground, #d4d4d4);
-      border: 1px solid var(--vscode-input-border, #3c3c3c);
+      background: var(--vscode-input-background, #2d2d2d);
+      color: var(--vscode-input-foreground, #d4d4d4);
+      border: 1px solid var(--vscode-focusBorder, #007fd4);
       border-radius: 4px;
       padding: 10px;
       font-family: var(--vscode-editor-font-family, monospace);
       font-size: var(--vscode-editor-font-size, 13px);
       line-height: 1.5;
       tab-size: 4;
+      cursor: text;
+      pointer-events: auto;
+      user-select: text;
+      -webkit-user-select: text;
     }
 
     #scaffold:focus {
       outline: none;
       border-color: var(--vscode-focusBorder, #007fd4);
+      box-shadow: 0 0 0 1px var(--vscode-focusBorder, #007fd4);
     }
 
     #resetBtn {
@@ -518,6 +525,7 @@ export class ExplainPanel {
     const outputEl   = document.getElementById('output');
     const exitCodeEl = document.getElementById('exit-code');
     const originalScaffold = scaffoldEl.value;
+    scaffoldEl.focus();
 
     // Tab key inserts spaces instead of moving focus
     scaffoldEl.addEventListener('keydown', e => {
