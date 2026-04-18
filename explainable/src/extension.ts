@@ -49,17 +49,23 @@ export function activate(context: vscode.ExtensionContext) {
       const language = editor.document.languageId;
       const fileContext = editor.document.getText();
 
-      vscode.window.showInformationMessage('Explainable: Explaining... ⏳');
-      try {
-        const apiKey = await getApiKey(context);
-        const result = await explainCode(selectedText, language, fileContext, apiKey);
-        console.log('[Explainable] Gemini result:', result);
-        ExplainPanel.createOrShow(context, result, language, sessionProvider);
-      } catch (err) {
-        vscode.window.showErrorMessage(
-          `Explainable: ${err instanceof Error ? err.message : 'Unknown error'}`
-        );
-      }
+      ExplainPanel.openLoading(context, language);
+      await vscode.window.withProgress(
+        { location: vscode.ProgressLocation.Notification, title: 'Explainable', cancellable: false },
+        async (progress) => {
+          progress.report({ message: `Explaining ${language} code...` });
+          try {
+            const apiKey = await getApiKey(context);
+            const result = await explainCode(selectedText, language, fileContext, apiKey);
+            console.log('[Explainable] Gemini result:', result);
+            ExplainPanel.createOrShow(context, result, language, sessionProvider);
+          } catch (err) {
+            vscode.window.showErrorMessage(
+              `Explainable: ${err instanceof Error ? err.message : 'Unknown error'}`
+            );
+          }
+        }
+      );
     }
   );
 
@@ -75,17 +81,23 @@ export function activate(context: vscode.ExtensionContext) {
       const language = document.languageId;
       const fileContent = document.getText();
 
-      vscode.window.showInformationMessage('Explainable: Explaining... ⏳');
-      try {
-        const apiKey = await getApiKey(context);
-        const result = await explainCode(fileContent, language, fileContent, apiKey);
-        console.log('[Explainable] Gemini result:', result);
-        ExplainPanel.createOrShow(context, result, language, sessionProvider);
-      } catch (err) {
-        vscode.window.showErrorMessage(
-          `Explainable: ${err instanceof Error ? err.message : 'Unknown error'}`
-        );
-      }
+      ExplainPanel.openLoading(context, language);
+      await vscode.window.withProgress(
+        { location: vscode.ProgressLocation.Notification, title: 'Explainable', cancellable: false },
+        async (progress) => {
+          progress.report({ message: `Explaining ${language} file...` });
+          try {
+            const apiKey = await getApiKey(context);
+            const result = await explainCode(fileContent, language, fileContent, apiKey);
+            console.log('[Explainable] Gemini result:', result);
+            ExplainPanel.createOrShow(context, result, language, sessionProvider);
+          } catch (err) {
+            vscode.window.showErrorMessage(
+              `Explainable: ${err instanceof Error ? err.message : 'Unknown error'}`
+            );
+          }
+        }
+      );
     }
   );
 

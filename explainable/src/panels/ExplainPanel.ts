@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { GeminiResult } from '../ai/gemini';
 import { SessionTreeProvider } from '../views/SessionTreeProvider';
-import { escapeHtml } from '../utils/htmlUtils';
+import { escapeHtml, getNonce } from '../utils/htmlUtils';
 import { runCode } from '../execution/runner';
 
 interface WebviewMessage {
@@ -45,11 +45,68 @@ export class ExplainPanel {
     );
   }
 
+  static openLoading(context: vscode.ExtensionContext, language: string): void {
+    void context;
+    const column = vscode.ViewColumn.Beside;
+    if (ExplainPanel.currentPanel) {
+      ExplainPanel.currentPanel._panel.reveal(column);
+    } else {
+      const panel = vscode.window.createWebviewPanel(
+        'explainablePanel',
+        `Explainable: ${language}`,
+        column,
+        { enableScripts: true, retainContextWhenHidden: true },
+      );
+      ExplainPanel.currentPanel = new ExplainPanel(panel);
+    }
+    ExplainPanel.currentPanel._panel.title = `Explainable: ${language}`;
+    ExplainPanel.currentPanel._panel.webview.html = ExplainPanel._loadingHtml(language);
+  }
+
+  private static _loadingHtml(language: string): string {
+    const nonce = getNonce();
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy"
+    content="default-src 'none'; style-src 'unsafe-inline'; script-src 'nonce-${nonce}';">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      display: flex; align-items: center; justify-content: center;
+      height: 100vh;
+      font-family: var(--vscode-font-family, sans-serif);
+      background: var(--vscode-editor-background);
+      color: var(--vscode-editor-foreground);
+    }
+    .loading { display: flex; flex-direction: column; align-items: center; gap: 14px; opacity: 0.7; }
+    .spinner {
+      width: 28px; height: 28px;
+      border: 2px solid var(--vscode-panel-border, #444);
+      border-top-color: var(--vscode-focusBorder, #007fd4);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    p { font-size: 13px; margin: 0; }
+  </style>
+</head>
+<body>
+  <div class="loading">
+    <div class="spinner"></div>
+    <p>Explaining ${escapeHtml(language)} code&hellip;</p>
+  </div>
+</body>
+</html>`;
+  }
+
   static createOrShow(
     context: vscode.ExtensionContext,
     result: GeminiResult,
     language: string,
     sessionProvider: SessionTreeProvider,
+    addToHistory = true,
   ): void {
     void context;
     const column = vscode.ViewColumn.Beside;
@@ -71,13 +128,15 @@ export class ExplainPanel {
       ExplainPanel.currentPanel._update(result, language);
     }
 
-    sessionProvider.addSession({
-      label: `${language} — ${new Date().toLocaleTimeString()}`,
-      timestamp: Date.now(),
-      explanation: result.explanation,
-      scaffold: result.scaffold,
-      language,
-    });
+    if (addToHistory) {
+      sessionProvider.addSession({
+        label: `${language} — ${new Date().toLocaleTimeString()}`,
+        timestamp: Date.now(),
+        explanation: result.explanation,
+        scaffold: result.scaffold,
+        language,
+      });
+    }
   }
 
   private _update(result: GeminiResult, language: string): void {
@@ -273,20 +332,3 @@ export class ExplainPanel {
   }
 }
 
-function getNonce(): string {
-  let text = '';
-  const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-  for (let i = 0; i < 32; i++) {
-    text += possible.charAt(Math.floor(Math.random() * possible.length));
-  }
-  return text;
-}
-
-function escapeHtml(str: string): string {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
-}
