@@ -1,0 +1,28 @@
+Codemap Scan — 2026-04-18
+==========================
+
+Files scanned: 4
+  explainable/src/extension.ts
+  explainable/src/test/extension.test.ts
+  explainable/package.json
+  explainable/tsconfig.json
+
+Previous codemaps: NONE (first run)
+
+Codemaps created:
+  docs/CODEMAPS/architecture.md
+  docs/CODEMAPS/frontend.md
+  docs/CODEMAPS/dependencies.md
+
+Architecture changes detected:
+  - Project is a VSCode extension (TypeScript, boilerplate only)
+  - No routes, no backend, no database
+  - Only registered command: explainable.helloWorld (placeholder)
+  - Planned features not yet implemented: WebviewPanel, TreeView, AI integration
+
+New dependencies detected (not yet installed):
+  - AI provider SDK (needed for explanation + scaffold generation)
+  - Monaco Editor or CodeMirror (needed for sandbox pane)
+
+Staleness warnings:
+  - N/A (first scan)

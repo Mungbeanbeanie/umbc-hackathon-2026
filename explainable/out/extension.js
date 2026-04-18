@@ -35,25 +35,52 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.activate = activate;
 exports.deactivate = deactivate;
-// The module 'vscode' contains the VS Code extensibility API
-// Import the module and reference it with the alias vscode in your code below
 const vscode = __importStar(require("vscode"));
-// This method is called when your extension is activated
-// Your extension is activated the very first time the command is executed
+const SessionTreeProvider_1 = require("./views/SessionTreeProvider");
 function activate(context) {
-    // Use the console to output diagnostic information (console.log) and errors (console.error)
-    // This line of code will only be executed once when your extension is activated
-    console.log('Congratulations, your extension "explainable" is now active!');
-    // The command has been defined in the package.json file
-    // Now provide the implementation of the command with registerCommand
-    // The commandId parameter must match the command field in package.json
-    const disposable = vscode.commands.registerCommand('explainable.helloWorld', () => {
-        // The code you place here will be executed every time your command is executed
-        // Display a message box to the user
-        vscode.window.showInformationMessage('Hello World from Explainable!');
+    const sessionProvider = new SessionTreeProvider_1.SessionTreeProvider();
+    const treeView = vscode.window.createTreeView('explainableSessions', {
+        treeDataProvider: sessionProvider,
+        showCollapseAll: false,
     });
-    context.subscriptions.push(disposable);
+    const explainSelection = vscode.commands.registerCommand('explainable.explainSelection', () => {
+        const editor = vscode.window.activeTextEditor;
+        if (!editor) {
+            vscode.window.showWarningMessage('No active editor.');
+            return;
+        }
+        const selection = editor.selection;
+        if (selection.isEmpty) {
+            vscode.window.showWarningMessage('No text selected. Highlight code first.');
+            return;
+        }
+        const selectedText = editor.document.getText(selection);
+        const language = editor.document.languageId;
+        const fileContext = editor.document.getText();
+        // TODO Phase 2: pass (selectedText, language, fileContext) to Gemini
+        // TODO Phase 3: open ExplainPanel with result
+        vscode.window.showInformationMessage(`[Stub] Explaining ${language} selection (${selectedText.length} chars)`);
+        // TODO Phase 5: sessionProvider.addSession({ label, timestamp, explanation, scaffold, language })
+        console.log('explainSelection called', { language, chars: selectedText.length, fileContext: fileContext.length });
+    });
+    const explainFile = vscode.commands.registerCommand('explainable.explainFile', async (uri) => {
+        const filePath = uri?.fsPath ?? vscode.window.activeTextEditor?.document.uri.fsPath;
+        if (!filePath) {
+            vscode.window.showWarningMessage('No file selected.');
+            return;
+        }
+        const document = await vscode.workspace.openTextDocument(filePath);
+        const language = document.languageId;
+        const fileContent = document.getText();
+        // TODO Phase 2: pass (filePath, fileContent, language) to Gemini
+        // TODO Phase 3: open ExplainPanel with result
+        vscode.window.showInformationMessage(`[Stub] Explaining file: ${filePath}`);
+        console.log('explainFile called', { filePath, language, chars: fileContent.length });
+    });
+    const openSession = vscode.commands.registerCommand('explainable.openSession', () => {
+        // TODO Phase 5: re-open ExplainPanel for the clicked session
+    });
+    context.subscriptions.push(treeView, explainSelection, explainFile, openSession, sessionProvider['_onDidChangeTreeData']);
 }
-// This method is called when your extension is deactivated
 function deactivate() { }
 //# sourceMappingURL=extension.js.map
