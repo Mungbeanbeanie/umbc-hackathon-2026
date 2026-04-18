@@ -37,8 +37,8 @@ Instructions:
   DO NOT exceed 5 sentences in total, and keep it as concise as possible while still being clear.
 3. "scaffold": A working interactive ${language} logic scaffold that a student can manipulate to better understand the construct.
     - It should have the same outer structure as the original code (e.g. if the original code is a for-loop, the scaffold should also be a for-loop).
-    - The scaffold should be complete, understandable, runnable code that demonstrates the same construct, but with all internal logic from the original code reference replaced by simplified examples.
-    - The scaffold should be as minimal as possible while still being a valid example of the construct. Remove any extra functions, conditions, or logic that are not essential to demonstrating the construct.
+    - The scaffold should be complete, understandable, runnable code that demonstrates the same construct, but with all internal logic from the original code reference replaced by simplified examples.    
+    - The scaffold should be as minimal as possible while still being a valid example of the construct. Remove any extra functions, conditions, or logic that are not essential to demonstrating the construct, but keep relevant information about variable initialization, loop conditions, relevant function parameters, etc.
     - The scaffold should be runnable and produce visible output, but it does NOT need to do anything meaningful. It is meant for educational purposes only.
     - If the original code is too complex to create a runnable scaffold, create a simplified version that captures the essence of the construct without all the complexity.
     - Include comments to help explain the structure and syntax of the scaffold
