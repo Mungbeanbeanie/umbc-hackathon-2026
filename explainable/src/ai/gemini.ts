@@ -49,10 +49,10 @@ Add brief comments explaining structure and syntax.
 
 "runnable": A complete ${language} program that wraps the scaffold for execution.
 
-Include all setup needed to run (imports, declarations, boilerplate).
+Include all setup needed to run (imports, boilerplate).
 Place the exact string {{SCAFFOLD}} at the single insertion point where the scaffold code belongs. Include nothing else in that position.
-Use small hardcoded inputs (e.g., a 3-item list, a counter to 5) matching what the scaffold expects.
 The user never sees this — it runs behind the scenes with {{SCAFFOLD}} replaced by the student's edited scaffold.
+
 Respond with ONLY this JSON (no markdown fences, no extra keys):
 {"title": "...", "explanation": "...", "scaffold": "...", "runnable": "..."}`;
 }
