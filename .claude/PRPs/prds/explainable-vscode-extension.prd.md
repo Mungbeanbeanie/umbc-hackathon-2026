@@ -179,7 +179,7 @@ Temp files written to `os.tmpdir()`, cleaned up after execution.
 | 3 | WebviewPanel UI | Split panel HTML/CSS/JS, explanation rendering, scaffold textarea, message bridge | in-progress | with 4 | 2 | `.claude/PRPs/plans/phase-3-webview-panel.plan.md` |
 | 4 | Code Execution | Temp file writer, child process runner, stdout/stderr capture, per-language routing | pending | with 3 | 2 | - |
 | 5 | Session History | In-memory SessionStore, TreeDataProvider, sidebar panel, click-to-reopen | complete | - | 3, 4 | `.claude/PRPs/plans/completed/phase-5-session-history.plan.md` |
-| 6 | Polish & Demo | Loading states, error handling, extension icon, end-to-end smoke test | pending | - | 5 | - |
+| 6 | Polish & Demo | Loading states, error handling, extension icon, end-to-end smoke test | complete | - | 5 | `.claude/PRPs/plans/completed/phase-6-polish-demo.plan.md` |
 
 ### Phase Details
 
