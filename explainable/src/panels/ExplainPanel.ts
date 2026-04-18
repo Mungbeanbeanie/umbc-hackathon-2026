@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { GeminiResult } from '../ai/gemini';
+import { runCode } from '../execution/runner';
 import { SessionTreeProvider } from '../views/SessionTreeProvider';
 
 interface WebviewMessage {
