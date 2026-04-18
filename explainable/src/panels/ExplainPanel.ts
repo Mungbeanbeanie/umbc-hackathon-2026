@@ -375,6 +375,9 @@ export class ExplainPanel {
       letter-spacing: 0.08em;
       opacity: 0.6;
       flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
     }
 
     #explanation {
@@ -410,20 +413,35 @@ export class ExplainPanel {
     #scaffold {
       flex: 1;
       resize: none;
-      background: var(--vscode-input-background, #1e1e1e);
-      color: var(--vscode-input-foreground, #d4d4d4);
+      background: var(--vscode-editor-background, #1e1e1e);
+      color: var(--vscode-editor-foreground, #d4d4d4);
       border: 1px solid var(--vscode-input-border, #3c3c3c);
       border-radius: 4px;
       padding: 10px;
       font-family: var(--vscode-editor-font-family, monospace);
       font-size: var(--vscode-editor-font-size, 13px);
       line-height: 1.5;
+      tab-size: 4;
     }
 
     #scaffold:focus {
       outline: none;
       border-color: var(--vscode-focusBorder, #007fd4);
     }
+
+    #resetBtn {
+      font-size: 10px;
+      font-weight: 600;
+      opacity: 0.5;
+      background: none;
+      border: none;
+      color: inherit;
+      cursor: pointer;
+      padding: 0;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    #resetBtn:hover { opacity: 1; }
 
     #runBtn {
       display: flex;
@@ -478,7 +496,10 @@ export class ExplainPanel {
       <div id="explanation">${explanationHtml}</div>
     </div>
     <div class="pane">
-      <div class="pane-title">&#x25B6; Try it yourself</div>
+      <div class="pane-title">
+        <span>&#x270F; Edit &amp; Run</span>
+        <button id="resetBtn" title="Restore original scaffold">Reset</button>
+      </div>
       <textarea id="scaffold" spellcheck="false">${scaffold}</textarea>
       <button id="runBtn">&#x25B6; Run</button>
       <div class="output-label">Output</div>
@@ -492,9 +513,25 @@ export class ExplainPanel {
     const runnableCode = ${JSON.stringify(runnable)};
 
     const runBtn     = document.getElementById('runBtn');
+    const resetBtn   = document.getElementById('resetBtn');
     const scaffoldEl = document.getElementById('scaffold');
     const outputEl   = document.getElementById('output');
     const exitCodeEl = document.getElementById('exit-code');
+    const originalScaffold = scaffoldEl.value;
+
+    // Tab key inserts spaces instead of moving focus
+    scaffoldEl.addEventListener('keydown', e => {
+      if (e.key !== 'Tab') { return; }
+      e.preventDefault();
+      const start = scaffoldEl.selectionStart;
+      const end   = scaffoldEl.selectionEnd;
+      scaffoldEl.value = scaffoldEl.value.slice(0, start) + '    ' + scaffoldEl.value.slice(end);
+      scaffoldEl.selectionStart = scaffoldEl.selectionEnd = start + 4;
+    });
+
+    resetBtn.addEventListener('click', () => {
+      scaffoldEl.value = originalScaffold;
+    });
 
     // Clickable file/symbol links
     document.getElementById('explanation').addEventListener('click', e => {
