@@ -21,15 +21,6 @@ Same split panel, scoped to the whole file.
 ### Run the scaffold
 The right pane executes code locally using your installed runtime:
 
-| Language | Runtime |
-|----------|---------|
-| Python | `python3` (falls back to `python`) |
-| JavaScript | `node` |
-| TypeScript | `npx ts-node` |
-| JSON | Built-in pretty-printer |
-| Java | Shows compile instructions (no execution) |
-| HTML | Shows browser instructions (no execution) |
-
 Output and exit code appear below the Run button.
 
 ### Session history
@@ -66,11 +57,6 @@ To clear your API key: open the Command Palette → **Explainable: Reset API Key
 ## Extension Settings
 
 No configuration settings are required. The Gemini API key is stored in VS Code's built-in secret storage and prompted on first use.
-
-## Known Issues
-
-- TypeScript scaffold execution requires `ts-node` to be available on your PATH or via `npx`
-- Sessions are in-memory only and clear when VS Code closes
 
 ## Release Notes
 
