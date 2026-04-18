@@ -2,7 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.explainCode = explainCode;
 const generative_ai_1 = require("@google/generative-ai");
-const MODEL = 'gemini-2.0-flash';
+const MODEL = 'gemini-2.5-flash';
 const SYSTEM_PROMPT = `You are a patient CS tutor helping students understand code they did not write.
 You must respond ONLY with valid JSON — no markdown, no prose outside the JSON object.
 The JSON must have exactly two keys: "explanation" and "scaffold".`;
