@@ -6,19 +6,60 @@ import { SessionTreeProvider } from '../views/SessionTreeProvider';
 import { escapeHtml, getNonce } from '../utils/htmlUtils';
 import { startRun, RunHandle } from '../execution/runner';
 
-interface WebviewMessage {
-  type: 'run';
-  code: string;
-  language: string;
+const HLJS_LANG_ALIAS: Record<string, string> = {
+  python3: 'python',
+  javascriptreact: 'javascript',
+  typescriptreact: 'typescript',
+  shellscript: 'bash',
+  'objective-c': 'objectivec',
+};
+
+function highlightScaffold(code: string, language: string): string {
+  const lang = HLJS_LANG_ALIAS[language] ?? language;
+  try {
+    if (hljs.getLanguage(lang)) {
+      return hljs.highlight(code, { language: lang, ignoreIllegals: true }).value;
+    }
+    return hljs.highlightAuto(code).value;
+  } catch {
+    return escapeHtml(code);
+  }
 }
 
-function isRunMessage(msg: unknown): msg is WebviewMessage {
+function escapeRegex(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+async function resolveFileLinks(explanation: string): Promise<Record<string, string>> {
+  const uris = await vscode.workspace.findFiles('**/*', '**/node_modules/**', 500);
+  const links: Record<string, string> = {};
+  for (const uri of uris) {
+    const base = path.basename(uri.fsPath);
+    if (new RegExp('\\b' + escapeRegex(base) + '\\b').test(explanation)) {
+      links[base] = uri.toString();
+    }
+  }
+  return links;
+}
+
+interface RunMessage { type: 'run'; code: string; language: string; }
+interface OpenFileMessage { type: 'openFile'; uri: string; }
+type InboundMessage = RunMessage | OpenFileMessage;
+
+function isRunMessage(msg: unknown): msg is RunMessage {
   return (
-    typeof msg === 'object' &&
-    msg !== null &&
+    typeof msg === 'object' && msg !== null &&
     (msg as Record<string, unknown>)['type'] === 'run' &&
     typeof (msg as Record<string, unknown>)['code'] === 'string' &&
     typeof (msg as Record<string, unknown>)['language'] === 'string'
+  );
+}
+
+function isOpenFileMessage(msg: unknown): msg is OpenFileMessage {
+  return (
+    typeof msg === 'object' && msg !== null &&
+    (msg as Record<string, unknown>)['type'] === 'openFile' &&
+    typeof (msg as Record<string, unknown>)['uri'] === 'string'
   );
 }
 
@@ -35,6 +76,17 @@ export class ExplainPanel {
 
     this._panel.webview.onDidReceiveMessage(
       async (msg: unknown) => {
+        if (isOpenFileMessage(msg)) {
+          try {
+            const uri = vscode.Uri.parse(msg.uri);
+            const doc = await vscode.workspace.openTextDocument(uri);
+            await vscode.window.showTextDocument(doc, { preview: false });
+          } catch {
+            vscode.window.showErrorMessage('Explainable: Could not open file.');
+          }
+          return;
+        }
+
         if (!isRunMessage(msg)) { return; }
         if (this._activeRun) { return; }
         const handle = startRun(msg.code, msg.language);
@@ -94,7 +146,7 @@ export class ExplainPanel {
 
     if (ExplainPanel.currentPanel) {
       ExplainPanel.currentPanel._panel.reveal(column);
-      ExplainPanel.currentPanel._update(result, label, language);
+      void ExplainPanel.currentPanel._update(result, label, language);
     } else {
       const panel = vscode.window.createWebviewPanel(
         'explainablePanel',
@@ -104,7 +156,7 @@ export class ExplainPanel {
       );
       ExplainPanel.currentPanel = new ExplainPanel(panel);
       ExplainPanel.currentPanel._panel.webview.html = ExplainPanel._shellHtml();
-      ExplainPanel.currentPanel._update(result, label, language);
+      void ExplainPanel.currentPanel._update(result, label, language);
     }
 
     if (addToHistory) {
@@ -119,42 +171,27 @@ export class ExplainPanel {
     }
   }
 
-  private _update(result: GeminiResult, label: string, language: string): void {
+  private async _update(result: GeminiResult, label: string, language: string): Promise<void> {
     this._panel.title = `Explainable: ${label}`;
-    this._panel.webview.postMessage({
-      type: 'update',
-      label,
-      explanation: result.explanation,
-      scaffold: result.scaffold,
-      runnable: result.runnable ?? '',
-      language,
-    });
+    const [scaffoldHtml, links] = await Promise.all([
+      Promise.resolve(highlightScaffold(result.scaffold, language)),
+      resolveFileLinks(result.explanation),
+    ]);
+    if (!this._disposed) {
+      this._panel.webview.postMessage({
+        type: 'update',
+        label,
+        explanation: result.explanation,
+        scaffoldHtml,
+        runnable: result.runnable ?? '',
+        language,
+        links,
+      });
+    }
   }
 
   private static _shellHtml(): string {
     const nonce = getNonce();
-    const explanation = escapeHtml(result.explanation);
-
-    const hljsLangAlias: Record<string, string> = {
-      python3: 'python',
-      javascriptreact: 'javascript',
-      typescriptreact: 'typescript',
-      shellscript: 'bash',
-      'objective-c': 'objectivec',
-    };
-    const hljsLang = hljsLangAlias[language] ?? language;
-    let highlightedScaffold: string;
-    try {
-      if (hljs.getLanguage(hljsLang)) {
-        // ignoreIllegals: true prevents abort on partial/LLM-generated scaffolds
-        highlightedScaffold = hljs.highlight(result.scaffold, { language: hljsLang, ignoreIllegals: true }).value;
-      } else {
-        highlightedScaffold = hljs.highlightAuto(result.scaffold).value;
-      }
-    } catch {
-      highlightedScaffold = escapeHtml(result.scaffold);
-    }
-
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -175,15 +212,11 @@ export class ExplainPanel {
       color: var(--vscode-editor-foreground);
     }
 
-    /* Loading state */
+    /* ── Loading ─────────────────────────────────── */
     #loading {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      flex: 1;
-      gap: 14px;
-      opacity: 0.7;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      flex: 1; gap: 14px; opacity: 0.7;
     }
     .spinner {
       width: 28px; height: 28px;
@@ -195,128 +228,96 @@ export class ExplainPanel {
     @keyframes spin { to { transform: rotate(360deg); } }
     #loading p { font-size: 13px; }
 
-    /* Content state */
+    /* ── Content ─────────────────────────────────── */
     #content { display: none; flex-direction: column; flex: 1; overflow: hidden; }
 
     header {
       padding: 10px 16px;
       border-bottom: 1px solid var(--vscode-panel-border, #444);
-      font-weight: 600;
-      font-size: 14px;
-      letter-spacing: 0.03em;
-      opacity: 0.85;
-      flex-shrink: 0;
+      font-weight: 600; font-size: 14px;
+      letter-spacing: 0.03em; opacity: 0.85; flex-shrink: 0;
     }
 
-    .split {
-      display: flex;
-      flex: 1;
-      overflow: hidden;
-    }
+    .split { display: flex; flex: 1; overflow: hidden; }
 
     .pane {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-      padding: 16px;
-      gap: 10px;
+      flex: 1; display: flex; flex-direction: column;
+      overflow: hidden; padding: 16px; gap: 10px;
     }
-
     .pane + .pane { border-left: 1px solid var(--vscode-panel-border, #444); }
 
     .pane-title {
-      font-size: 11px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      opacity: 0.6;
-      flex-shrink: 0;
+      font-size: 11px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.08em;
+      opacity: 0.6; flex-shrink: 0;
     }
 
+    /* ── Explanation ─────────────────────────────── */
     #explanation {
-      flex: 1;
-      overflow-y: auto;
-      line-height: 1.65;
-      white-space: pre-wrap;
+      flex: 1; overflow-y: auto;
+      line-height: 1.65; white-space: pre-wrap;
+    }
+    #explanation a {
+      color: var(--vscode-textLink-foreground, #4daafc);
+      text-decoration: underline;
+      cursor: pointer;
+    }
+    #explanation a:hover {
+      color: var(--vscode-textLink-activeForeground, #4daafc);
     }
 
-    .code-block {
-      flex: 1;
-      overflow: auto;
+    /* ── Scaffold (syntax-highlighted) ──────────── */
+    .scaffold-wrap {
+      flex: 1; overflow: auto;
       background: var(--vscode-input-background, #1e1e1e);
       border: 1px solid var(--vscode-input-border, #3c3c3c);
       border-radius: 4px;
-      padding: 10px;
+    }
+    .scaffold-wrap pre {
+      margin: 0; padding: 10px;
       font-family: var(--vscode-editor-font-family, monospace);
       font-size: var(--vscode-editor-font-size, 13px);
       line-height: 1.5;
-      margin: 0;
+      color: var(--vscode-input-foreground, #d4d4d4);
+      white-space: pre;
     }
+    /* highlight.js token colours (VS Code dark-theme palette) */
+    .hljs-keyword, .hljs-selector-tag { color: #569cd6; }
+    .hljs-string, .hljs-attr         { color: #ce9178; }
+    .hljs-comment                    { color: #6a9955; font-style: italic; }
+    .hljs-number, .hljs-literal      { color: #b5cea8; }
+    .hljs-built_in, .hljs-title      { color: #dcdcaa; }
+    .hljs-type, .hljs-class          { color: #4ec9b0; }
+    .hljs-variable, .hljs-params     { color: #9cdcfe; }
+    .hljs-operator, .hljs-punctuation{ color: #d4d4d4; }
 
-    .code-block code {
-      font-family: inherit;
-      font-size: inherit;
-      color: #abb2bf;
-    }
-
-    /* One Dark theme for highlight.js tokens */
-    .hljs-keyword, .hljs-selector-tag, .hljs-tag { color: #c678dd; font-weight: bold; }
-    .hljs-string, .hljs-attr, .hljs-template-tag { color: #98c379; }
-    .hljs-comment, .hljs-quote { color: #5c6370; font-style: italic; }
-    .hljs-number, .hljs-literal, .hljs-type { color: #d19a66; }
-    .hljs-title, .hljs-section, .hljs-name { color: #61afef; }
-    .hljs-class .hljs-title, .hljs-title.class_ { color: #e5c07b; }
-    .hljs-built_in, .hljs-builtin-name { color: #56b6c2; }
-    .hljs-variable, .hljs-template-variable { color: #e06c75; }
-    .hljs-params { color: #abb2bf; }
-    .hljs-operator, .hljs-punctuation { color: #abb2bf; }
-    .hljs-meta, .hljs-meta .hljs-keyword { color: #e06c75; }
-    .hljs-property { color: #e06c75; }
-    .hljs-regexp { color: #98c379; }
-    .hljs-symbol, .hljs-bullet { color: #d19a66; }
-    .hljs-link { color: #61afef; text-decoration: underline; }
-
+    /* ── Run button / output ─────────────────────── */
     #runBtn {
-      display: flex;
-      align-items: center;
-      gap: 6px;
+      display: flex; align-items: center; gap: 6px;
       padding: 6px 14px;
       background: var(--vscode-button-background, #0e639c);
       color: var(--vscode-button-foreground, #fff);
-      border: none;
-      border-radius: 3px;
-      cursor: pointer;
-      font-size: 13px;
-      font-weight: 500;
-      align-self: flex-start;
-      flex-shrink: 0;
+      border: none; border-radius: 3px; cursor: pointer;
+      font-size: 13px; font-weight: 500; align-self: flex-start; flex-shrink: 0;
     }
-    #runBtn:hover { background: var(--vscode-button-hoverBackground, #1177bb); }
+    #runBtn:hover    { background: var(--vscode-button-hoverBackground, #1177bb); }
     #runBtn:disabled { opacity: 0.5; cursor: not-allowed; }
 
     .output-label {
-      font-size: 11px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      opacity: 0.6;
-      flex-shrink: 0;
+      font-size: 11px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.08em;
+      opacity: 0.6; flex-shrink: 0;
     }
-
     #exit-code { font-size: 11px; margin-top: 2px; color: var(--vscode-descriptionForeground); flex-shrink: 0; }
     #exit-code.fail { color: var(--vscode-terminal-ansiRed, #f48771); }
     #output {
-      flex: 0 0 120px;
-      overflow-y: auto;
+      flex: 0 0 120px; overflow-y: auto;
       background: var(--vscode-terminal-background, #1a1a1a);
       color: var(--vscode-terminal-foreground, #cccccc);
       border: 1px solid var(--vscode-panel-border, #444);
-      border-radius: 4px;
-      padding: 8px 10px;
+      border-radius: 4px; padding: 8px 10px;
       font-family: var(--vscode-editor-font-family, monospace);
-      font-size: 12px;
-      white-space: pre-wrap;
+      font-size: 12px; white-space: pre-wrap;
     }
     #output.has-error { color: var(--vscode-terminal-ansiRed, #f48771); }
   </style>
@@ -335,8 +336,7 @@ export class ExplainPanel {
       </div>
       <div class="pane">
         <div class="pane-title">&#x25B6; Try it yourself</div>
-        <textarea id="scaffold" spellcheck="false"></textarea>
-        <pre class="code-block"><code>${highlightedScaffold}</code></pre>
+        <div class="scaffold-wrap"><pre id="scaffold"></pre></div>
         <button id="runBtn">&#x25B6; Run</button>
         <div class="output-label">Output</div>
         <pre id="output">Press Run to see output&hellip;</pre>
@@ -350,15 +350,39 @@ export class ExplainPanel {
     let runnableCode = '';
     let currentLanguage = '';
 
-    const loadingEl  = document.getElementById('loading');
-    const loadingTxt = document.getElementById('loading-text');
-    const contentEl  = document.getElementById('content');
-    const headerEl   = document.getElementById('header');
+    const loadingEl     = document.getElementById('loading');
+    const loadingTxt    = document.getElementById('loading-text');
+    const contentEl     = document.getElementById('content');
+    const headerEl      = document.getElementById('header');
     const explanationEl = document.getElementById('explanation');
-    const scaffoldEl = document.getElementById('scaffold');
-    const runBtn     = document.getElementById('runBtn');
-    const outputEl   = document.getElementById('output');
-    const exitCodeEl = document.getElementById('exit-code');
+    const scaffoldEl    = document.getElementById('scaffold');
+    const runBtn        = document.getElementById('runBtn');
+    const outputEl      = document.getElementById('output');
+    const exitCodeEl    = document.getElementById('exit-code');
+
+    function buildExplanationHtml(text, links) {
+      // Start with HTML-escaped plain text
+      let html = text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+      // Replace each matched filename with a clickable link
+      for (const [filename, uri] of Object.entries(links)) {
+        const escaped = filename.split('.').join('\\\\.');
+        html = html.replace(
+          new RegExp('\\\\b' + escaped + '\\\\b', 'g'),
+          '<a href="#" data-uri="' + uri + '">' + filename + '</a>'
+        );
+      }
+      return html;
+    }
+
+    explanationEl.addEventListener('click', e => {
+      const a = e.target.closest('a[data-uri]');
+      if (!a) { return; }
+      e.preventDefault();
+      vscode.postMessage({ type: 'openFile', uri: a.dataset.uri });
+    });
 
     window.addEventListener('message', event => {
       const msg = event.data;
@@ -375,22 +399,22 @@ export class ExplainPanel {
       }
 
       if (msg.type === 'update') {
-        headerEl.textContent      = 'Explainable \u2014 ' + msg.label;
-        explanationEl.textContent = msg.explanation;
-        scaffoldEl.value          = msg.scaffold;
-        runnableCode              = msg.runnable || '';
-        currentLanguage           = msg.language;
-        runBtn.disabled           = false;
-        runBtn.innerHTML          = '&#x25B6; Run';
-        outputEl.textContent      = 'Press Run to see output\u2026';
-        outputEl.className        = '';
-        exitCodeEl.textContent    = '';
-        exitCodeEl.className      = '';
-        loadingEl.style.display   = 'none';
-        contentEl.style.display   = 'flex';
+        headerEl.textContent   = 'Explainable \u2014 ' + msg.label;
+        explanationEl.innerHTML = buildExplanationHtml(msg.explanation, msg.links || {});
+        scaffoldEl.innerHTML   = msg.scaffoldHtml || '';
+        runnableCode           = msg.runnable || '';
+        currentLanguage        = msg.language;
+        runBtn.disabled        = false;
+        runBtn.innerHTML       = '&#x25B6; Run';
+        outputEl.textContent   = 'Press Run to see output\u2026';
+        outputEl.className     = '';
+        exitCodeEl.textContent = '';
+        exitCodeEl.className   = '';
+        loadingEl.style.display  = 'none';
+        contentEl.style.display  = 'flex';
         contentEl.style.flexDirection = 'column';
-        contentEl.style.flex      = '1';
-        contentEl.style.overflow  = 'hidden';
+        contentEl.style.flex     = '1';
+        contentEl.style.overflow = 'hidden';
         return;
       }
 
