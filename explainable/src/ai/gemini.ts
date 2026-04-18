@@ -29,26 +29,30 @@ ${contextSnippet}
 \`\`\`
 
 Instructions:
-1. "title": A 3-5 word phrase describing what this specific code block does (e.g. "fetch user data from API", "recursive binary search function", "filter even numbers from list"). Be concrete — use actual variable or function names if helpful.
-2. "explanation": describe what the SELECTED CODE does at a high level in 3 sections: 
-  a) Name the outer construct (loop, class, function, etc.) and its overall purpose. 
-  b) Describe the key steps or components inside the construct. 
-  c) Explain how it fits into the larger file or project context, if relevant. Do NOT explain internal logic, individual conditions, or implementation details.
-  DO NOT exceed 5 sentences in total, and keep it as concise as possible while still being clear.
-3. "scaffold": A working interactive ${language} logic scaffold that a student can manipulate to better understand the construct.
-    - It should have the same outer structure as the original code (e.g. if the original code is a for-loop, the scaffold should also be a for-loop).
-    - The scaffold should be complete, understandable, runnable code that demonstrates the same construct, but with all internal logic from the original code reference replaced by simplified examples.    
-    - The scaffold should be as minimal as possible while still being a valid example of the construct. Remove any extra functions, conditions, or logic that are not essential to demonstrating the construct, but keep relevant information about variable initialization, loop conditions, relevant function parameters, etc.
-    - The scaffold should be runnable and produce visible output, but it does NOT need to do anything meaningful. It is meant for educational purposes only.
-    - If the original code is too complex to create a runnable scaffold, create a simplified version that captures the essence of the construct without all the complexity.
-    - Include comments to help explain the structure and syntax of the scaffold
-4. "runnable": A complete ${language} program that wraps the scaffold. Rules:
-  - Include all necessary setup (imports, variable declarations, main function/class boilerplate) so the scaffold can execute.
-  - Place the exact literal string {{SCAFFOLD}} at the single point where the scaffold code should be inserted — no other placeholder text.
-  - Do NOT include any copy of the scaffold logic itself; {{SCAFFOLD}} is the only stand-in for it.
-  - The surrounding setup should use small hardcoded values (e.g. a list of 3 items, a counter up to 5) that match what the scaffold expects.
-  - The user never sees runnable — it is only used at run time by replacing {{SCAFFOLD}} with whatever the student wrote in the scaffold editor.
+Generate JSON with these 4 fields for the selected ${language} code:
+"title": 3-5 word phrase describing what the code does. Be concrete; use actual names from the code when helpful.
+"explanation": What the selected code does, in 3-5 sentences max:
 
+Name the outer construct (loop, function, class, etc.) and its purpose.
+Summarize the key steps inside it.
+Note how it fits the larger file, if relevant.
+Skip internal logic details, individual conditions, and implementation specifics.
+
+"scaffold": A minimal, runnable ${language} snippet that teaches the same construct through a simplified example.
+
+Match the outer structure of the original (if-elif-else → if-elif-else, for-loop → for-loop, etc.).
+Replace ALL original logic with new, simple, concrete values — real variable names, real literals, real outputs. Never reproduce the original's specific conditions or data.
+WRONG: commented pseudocode stubs like # return result for condition1. RIGHT: actual executable statements like return "low".
+Keep it as short as possible while remaining a valid, complete demonstration of the construct.
+Must produce visible output when run.
+Add brief comments explaining structure and syntax.
+
+"runnable": A complete ${language} program that wraps the scaffold for execution.
+
+Include all setup needed to run (imports, declarations, boilerplate).
+Place the exact string {{SCAFFOLD}} at the single insertion point where the scaffold code belongs. Include nothing else in that position.
+Use small hardcoded inputs (e.g., a 3-item list, a counter to 5) matching what the scaffold expects.
+The user never sees this — it runs behind the scenes with {{SCAFFOLD}} replaced by the student's edited scaffold.
 Respond with ONLY this JSON (no markdown fences, no extra keys):
 {"title": "...", "explanation": "...", "scaffold": "...", "runnable": "..."}`;
 }
