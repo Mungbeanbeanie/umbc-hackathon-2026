@@ -51,4 +51,8 @@ export class SessionTreeProvider implements vscode.TreeDataProvider<SessionTreeI
     }
     return this.sessions.map(s => new SessionTreeItem(s));
   }
+
+  dispose(): void {
+    this._onDidChangeTreeData.dispose();
+  }
 }

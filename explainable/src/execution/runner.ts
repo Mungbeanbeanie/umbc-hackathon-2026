@@ -82,12 +82,17 @@ async function spawnProcess(
     let timedOut = false;
 
     const child = spawn(config.cmd, config.args(tmpFile), {
-      env: { ...process.env },
+      env: {
+        PATH: process.env.PATH ?? '',
+        HOME: process.env.HOME ?? '',
+        LANG: process.env.LANG ?? '',
+      },
     });
 
     const timer = setTimeout(() => {
       timedOut = true;
       child.kill('SIGTERM');
+      setTimeout(() => { child.kill('SIGKILL'); }, 2000);
     }, TIMEOUT_MS);
 
     child.stdout.on('data', (chunk: Buffer) => { stdout += chunk.toString(); });
@@ -96,8 +101,6 @@ async function spawnProcess(
     child.on('close', async (code) => {
       clearTimeout(timer);
       try { await fs.unlink(tmpFile); } catch { /* ignore cleanup errors */ }
-
-      console.log('[Explainable] runner: exit', code, { stdout, stderr });
 
       if (timedOut) {
         resolve({

@@ -51,7 +51,8 @@ function parseResult(raw: string): GeminiResult {
       explanation: parsed.explanation,
       scaffold: parsed.scaffold,
     };
-  } catch {
+  } catch (err) {
+    console.warn('[Explainable] parseResult fallback triggered:', err instanceof Error ? err.message : String(err));
     return {
       title: 'code snippet',
       explanation: raw,

@@ -2,8 +2,6 @@ import * as vscode from 'vscode';
 import { explainCode } from './ai/gemini';
 import { ExplainPanel } from './panels/ExplainPanel';
 import { SessionTreeProvider, SessionItem } from './views/SessionTreeProvider';
-//add import for runner
-
 const SECRET_KEY = 'explainable.geminiApiKey';
 
 async function getApiKey(context: vscode.ExtensionContext): Promise<string> {
@@ -59,7 +57,6 @@ export function activate(context: vscode.ExtensionContext) {
           try {
             const apiKey = await getApiKey(context);
             const result = await explainCode(selectedText, language, fileContext, apiKey);
-            console.log('[Explainable] Gemini result:', result);
             ExplainPanel.createOrShow(context, result, language, sessionProvider);
           } catch (err) {
             vscode.window.showErrorMessage(
@@ -91,7 +88,6 @@ export function activate(context: vscode.ExtensionContext) {
           try {
             const apiKey = await getApiKey(context);
             const result = await explainCode(fileContent, language, fileContent, apiKey);
-            console.log('[Explainable] Gemini result:', result);
             ExplainPanel.createOrShow(context, result, language, sessionProvider);
           } catch (err) {
             vscode.window.showErrorMessage(
@@ -101,7 +97,7 @@ export function activate(context: vscode.ExtensionContext) {
         }
       );
     }
-  );// Command to reset API key end
+  );
 
   const resetApiKey = vscode.commands.registerCommand(
     'explainable.resetApiKey',
@@ -114,12 +110,12 @@ export function activate(context: vscode.ExtensionContext) {
   const openSession = vscode.commands.registerCommand(
     'explainable.openSession',
     (session: SessionItem) => {
-      console.log('[Explainable] openSession:', session.label);
       ExplainPanel.createOrShow(
         context,
-        { explanation: session.explanation, scaffold: session.scaffold },
+        { title: session.label, explanation: session.explanation, scaffold: session.scaffold },
         session.language,
         sessionProvider,
+        '',
         false,
       );
     }
@@ -131,7 +127,7 @@ export function activate(context: vscode.ExtensionContext) {
     explainFile,
     resetApiKey,
     openSession,
-    sessionProvider['_onDidChangeTreeData'],
+    { dispose: () => sessionProvider.dispose() },
   );
 }
 

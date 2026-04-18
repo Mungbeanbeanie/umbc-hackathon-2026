@@ -15,6 +15,7 @@ export class ExplainPanel {
   private static currentPanel: ExplainPanel | undefined;
   private readonly _panel: vscode.WebviewPanel;
   private _disposables: vscode.Disposable[] = [];
+  private _disposed = false;
 
   private constructor(panel: vscode.WebviewPanel) {
     this._panel = panel;
@@ -23,8 +24,19 @@ export class ExplainPanel {
     this._panel.webview.onDidReceiveMessage(
       async (msg: WebviewMessage) => {
         if (msg.type === 'run') {
-          const result = await runCode(msg.code, msg.language);
-          this._panel.webview.postMessage({ type: 'runResult', result });
+          try {
+            const result = await runCode(msg.code, msg.language);
+            if (!this._disposed) {
+              this._panel.webview.postMessage({ type: 'runResult', result });
+            }
+          } catch (err) {
+            if (!this._disposed) {
+              this._panel.webview.postMessage({
+                type: 'runResult',
+                result: { stdout: '', stderr: '', exitCode: 1, error: err instanceof Error ? err.message : 'Unknown error' },
+              });
+            }
+          }
         }
       },
       undefined,
@@ -330,6 +342,7 @@ export class ExplainPanel {
   }
 
   private _dispose(): void {
+    this._disposed = true;
     ExplainPanel.currentPanel = undefined;
     this._panel.dispose();
     for (const d of this._disposables) {
