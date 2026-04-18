@@ -4,6 +4,7 @@ export interface GeminiResult {
   title: string;
   explanation: string;
   scaffold: string;
+  runnable: string;
 }
 
 const MODEL = 'gemini-2.5-flash';
@@ -29,15 +30,16 @@ ${contextSnippet}
 Instructions:
 1. "title": A 4-6 word phrase describing what this specific code block does (e.g. "fetch user data from API", "recursive binary search function", "filter even numbers from list"). Be concrete — use actual variable or function names if helpful.
 2. "explanation": In 2-3 sentences, describe what the SELECTED CODE does at a high level. Name the outer construct (loop, class, function, etc.) and its overall purpose. Do NOT explain internal logic, individual conditions, or implementation details.
-3. "scaffold": Write a simple, fully runnable ${language} example of the SAME outer construct. Rules:
-   - Use the same construct type (for-loop → for-loop, while-loop → while-loop, class → class, function → function, etc.)
-   - Use small hardcoded values (e.g. loop 3-5 times, a list of 3 items)
-   - Replace ALL internal logic with a single comment (e.g. "// your logic here") plus one simple print/console.log/System.out.println so it produces visible output when run
-   - No helper functions, no imports, no complex expressions — just the construct + print
-   - Maximum 8 lines. Must be copy-paste runnable.
+3. "scaffold": A visual outline of the construct for display only — NOT runnable code. Show the outer shell (opening line + closing brace/keyword) with the entire body replaced by a plain-English comment describing what goes inside. Use the same construct type as the original. Maximum 5 lines. Example for a for-loop: "for (int i = 0; i < n; i++) {\n    // repeat this block n times\n}"
+4. "runnable": A fully working ${language} program that demonstrates the SAME construct. Rules:
+   - Use the same construct type (for-loop → for-loop, class → class, etc.)
+   - Use small hardcoded values (loop 3 times, a list of 3 items, etc.)
+   - The body does ONE simple thing (print the counter, print each item, etc.)
+   - No imports unless absolutely required by the language, no helper functions
+   - Must run to completion and produce visible output. Maximum 10 lines.
 
 Respond with ONLY this JSON (no markdown fences, no extra keys):
-{"title": "...", "explanation": "...", "scaffold": "..."}`;
+{"title": "...", "explanation": "...", "scaffold": "...", "runnable": "..."}`;
 }
 
 function parseResult(raw: string): GeminiResult {
@@ -55,12 +57,14 @@ function parseResult(raw: string): GeminiResult {
       title: typeof parsed.title === 'string' ? parsed.title : 'code snippet',
       explanation: parsed.explanation,
       scaffold: parsed.scaffold,
+      runnable: typeof parsed.runnable === 'string' ? parsed.runnable : parsed.scaffold,
     };
   } catch {
     return {
       title: 'code snippet',
       explanation: raw,
-      scaffold: `# Could not generate scaffold\n# Raw response shown in explanation\n`,
+      scaffold: `// Could not generate example`,
+      runnable: '',
     };
   }
 }
