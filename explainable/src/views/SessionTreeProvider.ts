@@ -5,6 +5,7 @@ export interface SessionItem {
   timestamp: number;
   explanation: string;
   scaffold: string;
+  runnable: string;
   language: string;
 }
 

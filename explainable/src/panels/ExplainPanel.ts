@@ -148,6 +148,7 @@ export class ExplainPanel {
         timestamp: Date.now(),
         explanation: result.explanation,
         scaffold: result.scaffold,
+        runnable: result.runnable,
         language,
       });
     }
@@ -155,10 +156,10 @@ export class ExplainPanel {
 
   private _update(result: GeminiResult, label: string, language: string): void {
     this._panel.title = `Explainable: ${label}`;
-    this._panel.webview.html = this._getHtml(result, label, language);
+    this._panel.webview.html = this._getHtml(result, label, language, result.runnable);
   }
 
-  private _getHtml(result: GeminiResult, label: string, language: string): string {
+  private _getHtml(result: GeminiResult, label: string, language: string, runnable = ''): string {
     const nonce = getNonce();
     const explanation = escapeHtml(result.explanation);
     const scaffold = escapeHtml(result.scaffold);
@@ -315,9 +316,9 @@ export class ExplainPanel {
   <script nonce="${nonce}">
     const vscode = acquireVsCodeApi();
     const language = ${JSON.stringify(language)};
+    const runnableCode = ${JSON.stringify(runnable)};
 
     const runBtn = document.getElementById('runBtn');
-    const scaffoldEl = document.getElementById('scaffold');
     const outputEl = document.getElementById('output');
     const exitCodeEl = document.getElementById('exit-code');
 
@@ -328,7 +329,7 @@ export class ExplainPanel {
       outputEl.className = '';
       exitCodeEl.textContent = '';
       exitCodeEl.className = '';
-      vscode.postMessage({ type: 'run', code: scaffoldEl.value, language });
+      vscode.postMessage({ type: 'run', code: runnableCode, language });
     });
 
     window.addEventListener('message', event => {

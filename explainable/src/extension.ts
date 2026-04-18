@@ -116,7 +116,7 @@ export function activate(context: vscode.ExtensionContext) {
     (session: SessionItem) => {
       ExplainPanel.createOrShow(
         context,
-        { title: session.label, explanation: session.explanation, scaffold: session.scaffold },
+        { title: session.label, explanation: session.explanation, scaffold: session.scaffold, runnable: session.runnable },
         session.language,
         sessionProvider,
         '',
