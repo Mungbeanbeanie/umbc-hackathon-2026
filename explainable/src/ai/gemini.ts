@@ -30,7 +30,7 @@ ${contextSnippet}
 Instructions:
 1. "title": A 4-6 word phrase describing what this specific code block does (e.g. "fetch user data from API", "recursive binary search function", "filter even numbers from list"). Be concrete — use actual variable or function names if helpful.
 2. "explanation": In 2-3 sentences, describe what the SELECTED CODE does at a high level. Name the outer construct (loop, class, function, etc.) and its overall purpose. Do NOT explain internal logic, individual conditions, or implementation details.
-3. "scaffold": A visual outline of the construct for display only — NOT runnable code. Show the outer shell (opening line + closing brace/keyword) with the entire body replaced by a plain-English comment describing what goes inside. Use the same construct type as the original. Maximum 5 lines. Example for a for-loop: "for (int i = 0; i < n; i++) {\n    // repeat this block n times\n}"
+3. "scaffold": Display version — copy the EXACT outer construct signature from the SELECTED CODE (real variable names, real bounds, real parameters — do not simplify). Replace ONLY the body with one or two plain-English pseudo-code comments describing what the body does at a high level. Do not add any executable statements. Maximum 8 lines. Example: if the original is "for (int i = 0; i < arr.length; i++) { result += arr[i]; }" then scaffold is "for (int i = 0; i < arr.length; i++) {\n    // add each element to result\n}"
 4. "runnable": A fully working ${language} program that demonstrates the SAME construct. Rules:
    - Use the same construct type (for-loop → for-loop, class → class, etc.)
    - Use small hardcoded values (loop 3 times, a list of 3 items, etc.)
