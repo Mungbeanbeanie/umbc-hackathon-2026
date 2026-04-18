@@ -28,8 +28,8 @@ ${contextSnippet}
 
 Instructions:
 1. "title": A 4-6 word phrase describing what this specific code block does (e.g. "fetch user data from API", "recursive binary search function", "filter even numbers from list"). Be concrete — use actual variable or function names if helpful.
-2. "explanation": Explain what the SELECTED CODE does in plain English. Focus on the highest-level construct present (if it is a loop, explain the loop; if it is a class, explain the class; if it is a function call, explain what it does in context). Assume the student knows variables, functions, and basic data types but may not know this specific pattern. Maximum 150 words. Be concrete — mention the actual variable names and values from the code.
-3. "scaffold": Write a minimal bare-bones ${language} example of the SAME construct type. Do NOT copy the original code. Use generic names (items, result, callback, etc.). Add short TODO comments showing where the student should put their own logic. Maximum 20 lines.
+2. "explanation": In 2-3 sentences, describe what the SELECTED CODE does at a high level. Name the outer construct (loop, class, function, etc.) and its overall purpose. Do NOT explain internal logic, individual conditions, or implementation details.
+3. "scaffold": Show ONLY the outer construct shell in ${language} — just the opening line and closing brace/keyword of the loop, class, function, or block. Replace the entire body with a single "# TODO: your logic here" comment. Do NOT include any internal logic. Maximum 6 lines.
 
 Respond with ONLY this JSON (no markdown fences, no extra keys):
 {"title": "...", "explanation": "...", "scaffold": "..."}`;
