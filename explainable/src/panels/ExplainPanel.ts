@@ -3,7 +3,7 @@ import * as vscode from 'vscode';
 import { GeminiResult } from '../ai/gemini';
 import { SessionTreeProvider } from '../views/SessionTreeProvider';
 import { escapeHtml, getNonce } from '../utils/htmlUtils';
-import { runCode } from '../execution/runner';
+import { startRun, RunHandle } from '../execution/runner';
 
 interface WebviewMessage {
   type: 'run';
@@ -11,32 +11,47 @@ interface WebviewMessage {
   language: string;
 }
 
+function isRunMessage(msg: unknown): msg is WebviewMessage {
+  return (
+    typeof msg === 'object' &&
+    msg !== null &&
+    (msg as Record<string, unknown>)['type'] === 'run' &&
+    typeof (msg as Record<string, unknown>)['code'] === 'string' &&
+    typeof (msg as Record<string, unknown>)['language'] === 'string'
+  );
+}
+
 export class ExplainPanel {
   private static currentPanel: ExplainPanel | undefined;
   private readonly _panel: vscode.WebviewPanel;
   private _disposables: vscode.Disposable[] = [];
   private _disposed = false;
+  private _activeRun: RunHandle | null = null;
 
   private constructor(panel: vscode.WebviewPanel) {
     this._panel = panel;
     this._panel.onDidDispose(() => this._dispose(), null, this._disposables);
 
     this._panel.webview.onDidReceiveMessage(
-      async (msg: WebviewMessage) => {
-        if (msg.type === 'run') {
-          try {
-            const result = await runCode(msg.code, msg.language);
-            if (!this._disposed) {
-              this._panel.webview.postMessage({ type: 'runResult', result });
-            }
-          } catch (err) {
-            if (!this._disposed) {
-              this._panel.webview.postMessage({
-                type: 'runResult',
-                result: { stdout: '', stderr: '', exitCode: 1, error: err instanceof Error ? err.message : 'Unknown error' },
-              });
-            }
+      async (msg: unknown) => {
+        if (!isRunMessage(msg)) { return; }
+        if (this._activeRun) { return; }
+        const handle = startRun(msg.code, msg.language);
+        this._activeRun = handle;
+        try {
+          const result = await handle.result;
+          if (!this._disposed) {
+            this._panel.webview.postMessage({ type: 'runResult', result });
           }
+        } catch (err) {
+          if (!this._disposed) {
+            this._panel.webview.postMessage({
+              type: 'runResult',
+              result: { stdout: '', stderr: '', exitCode: 1, error: err instanceof Error ? err.message : 'Unknown error' },
+            });
+          }
+        } finally {
+          this._activeRun = null;
         }
       },
       undefined,
@@ -343,6 +358,8 @@ export class ExplainPanel {
 
   private _dispose(): void {
     this._disposed = true;
+    this._activeRun?.kill();
+    this._activeRun = null;
     ExplainPanel.currentPanel = undefined;
     this._panel.dispose();
     for (const d of this._disposables) {

@@ -21,6 +21,8 @@ export class SessionTreeItem extends vscode.TreeItem {
   }
 }
 
+const MAX_SESSIONS = 50;
+
 export class SessionTreeProvider implements vscode.TreeDataProvider<SessionTreeItem> {
   private _onDidChangeTreeData = new vscode.EventEmitter<SessionTreeItem | undefined | null | void>();
   readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
@@ -29,6 +31,9 @@ export class SessionTreeProvider implements vscode.TreeDataProvider<SessionTreeI
 
   addSession(item: SessionItem): void {
     this.sessions.unshift(item);
+    if (this.sessions.length > MAX_SESSIONS) {
+      this.sessions.length = MAX_SESSIONS;
+    }
     this._onDidChangeTreeData.fire();
   }
 

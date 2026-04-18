@@ -71,12 +71,16 @@ export function activate(context: vscode.ExtensionContext) {
   const explainFile = vscode.commands.registerCommand(
     'explainable.explainFile',
     async (uri: vscode.Uri) => {
-      const filePath = uri?.fsPath ?? vscode.window.activeTextEditor?.document.uri.fsPath;
-      if (!filePath) {
+      const resolvedUri = uri ?? vscode.window.activeTextEditor?.document.uri;
+      if (!resolvedUri) {
         vscode.window.showWarningMessage('No file selected.');
         return;
       }
-      const document = await vscode.workspace.openTextDocument(filePath);
+      if (!vscode.workspace.getWorkspaceFolder(resolvedUri)) {
+        vscode.window.showWarningMessage('Explainable: File must be inside an open workspace folder.');
+        return;
+      }
+      const document = await vscode.workspace.openTextDocument(resolvedUri);
       const language = document.languageId;
       const fileContent = document.getText();
 

@@ -1,13 +1,19 @@
 import * as os from 'os';
 import * as path from 'path';
 import * as fs from 'fs/promises';
-import { spawn } from 'child_process';
+import { spawn, ChildProcess } from 'child_process';
+import { randomBytes } from 'crypto';
 
 export interface RunResult {
   stdout: string;
   stderr: string;
   exitCode: number;
   error?: string;
+}
+
+export interface RunHandle {
+  result: Promise<RunResult>;
+  kill: () => void;
 }
 
 const TIMEOUT_MS = 10_000;
@@ -27,109 +33,146 @@ const LANG_MAP: Record<string, LangConfig> = {
   html:       { kind: 'unsupported', reason: 'HTML: open in a browser or use the VS Code Live Preview extension.' },
 };
 
-export async function runCode(code: string, language: string): Promise<RunResult> {
+export function startRun(code: string, language: string): RunHandle {
   const config = LANG_MAP[language.toLowerCase()];
 
   if (!config) {
     return {
-      stdout: '',
-      stderr: '',
-      exitCode: 1,
-      error: `Language "${language}" is not supported for execution in Explainable.`,
+      result: Promise.resolve({
+        stdout: '',
+        stderr: '',
+        exitCode: 1,
+        error: `Language "${language}" is not supported for execution in Explainable.`,
+      }),
+      kill: () => { /* nothing to kill */ },
     };
   }
 
   if (config.kind === 'unsupported') {
-    return { stdout: '', stderr: '', exitCode: 0, error: config.reason };
+    return {
+      result: Promise.resolve({ stdout: '', stderr: '', exitCode: 0, error: config.reason }),
+      kill: () => { /* nothing to kill */ },
+    };
   }
 
   if (config.kind === 'json') {
-    try {
-      const pretty = JSON.stringify(JSON.parse(code), null, 2);
-      return { stdout: pretty, stderr: '', exitCode: 0 };
-    } catch (e) {
-      return {
-        stdout: '',
-        stderr: e instanceof Error ? e.message : 'Invalid JSON',
-        exitCode: 1,
-      };
-    }
+    return {
+      result: (async () => {
+        try {
+          const pretty = JSON.stringify(JSON.parse(code), null, 2);
+          return { stdout: pretty, stderr: '', exitCode: 0 };
+        } catch (e) {
+          return { stdout: '', stderr: e instanceof Error ? e.message : 'Invalid JSON', exitCode: 1 };
+        }
+      })(),
+      kill: () => { /* nothing to kill */ },
+    };
   }
 
   return spawnProcess(code, config);
 }
 
-async function spawnProcess(
+export async function runCode(code: string, language: string): Promise<RunResult> {
+  return startRun(code, language).result;
+}
+
+function spawnProcess(
   code: string,
   config: Extract<LangConfig, { kind: 'spawn' }>
-): Promise<RunResult> {
-  const tmpFile = path.join(os.tmpdir(), `explainable_${Date.now()}${config.ext}`);
+): RunHandle {
+  const suffix = randomBytes(8).toString('hex');
+  const tmpFile = path.join(os.tmpdir(), `explainable_${suffix}${config.ext}`);
 
-  try {
-    await fs.writeFile(tmpFile, code, 'utf8');
-  } catch (e) {
-    return {
-      stdout: '',
-      stderr: '',
-      exitCode: 1,
-      error: `Could not write temp file: ${e instanceof Error ? e.message : String(e)}`,
-    };
-  }
+  let activeChild: ChildProcess | null = null;
 
-  return new Promise<RunResult>((resolve) => {
-    let stdout = '';
-    let stderr = '';
-    let timedOut = false;
+  const result = new Promise<RunResult>((resolve) => {
+    fs.writeFile(tmpFile, code, 'utf8').then(() => {
+      let stdout = '';
+      let stderr = '';
+      let timedOut = false;
+      let settled = false;
 
-    const child = spawn(config.cmd, config.args(tmpFile), {
-      env: {
-        PATH: process.env.PATH ?? '',
-        HOME: process.env.HOME ?? '',
-        LANG: process.env.LANG ?? '',
-      },
-    });
+      const settle = (r: RunResult) => {
+        if (!settled) {
+          settled = true;
+          resolve(r);
+        }
+      };
 
-    const timer = setTimeout(() => {
-      timedOut = true;
-      child.kill('SIGTERM');
-      setTimeout(() => { child.kill('SIGKILL'); }, 2000);
-    }, TIMEOUT_MS);
+      const child = spawn(config.cmd, config.args(tmpFile), {
+        env: {
+          PATH: process.env.PATH ?? '',
+          HOME: process.env.HOME ?? '',
+          LANG: process.env.LANG ?? '',
+        },
+      });
+      activeChild = child;
 
-    child.stdout.on('data', (chunk: Buffer) => { stdout += chunk.toString(); });
-    child.stderr.on('data', (chunk: Buffer) => { stderr += chunk.toString(); });
+      let killTimer: ReturnType<typeof setTimeout> | null = null;
 
-    child.on('close', async (code) => {
-      clearTimeout(timer);
-      try { await fs.unlink(tmpFile); } catch { /* ignore cleanup errors */ }
+      const timer = setTimeout(() => {
+        timedOut = true;
+        child.kill('SIGTERM');
+        killTimer = setTimeout(() => { child.kill('SIGKILL'); }, 2000);
+      }, TIMEOUT_MS);
 
-      if (timedOut) {
-        resolve({
-          stdout,
-          stderr,
-          exitCode: code ?? 1,
-          error: `Execution timed out after ${TIMEOUT_MS / 1000}s`,
+      if (child.stdout) {
+        child.stdout.on('data', (chunk: Buffer) => { stdout += chunk.toString(); });
+      }
+      if (child.stderr) {
+        child.stderr.on('data', (chunk: Buffer) => { stderr += chunk.toString(); });
+      }
+
+      child.on('close', async () => {
+        clearTimeout(timer);
+        if (killTimer !== null) { clearTimeout(killTimer); }
+        activeChild = null;
+        try { await fs.unlink(tmpFile); } catch { /* ignore cleanup errors */ }
+
+        if (timedOut) {
+          settle({ stdout, stderr, exitCode: 1, error: `Execution timed out after ${TIMEOUT_MS / 1000}s` });
+          return;
+        }
+
+        settle({ stdout, stderr, exitCode: 0 });
+      });
+
+      child.on('error', async (err: NodeJS.ErrnoException) => {
+        clearTimeout(timer);
+        if (killTimer !== null) { clearTimeout(killTimer); }
+        activeChild = null;
+        try { await fs.unlink(tmpFile); } catch { /* ignore */ }
+
+        if (err.code === 'ENOENT' && config.cmd === 'python3') {
+          const handle = spawnProcess(code, { ...config, cmd: 'python' });
+          handle.result.then(settle).catch(() => { /* settled via error */ });
+          return;
+        }
+
+        settle({
+          stdout: '',
+          stderr: '',
+          exitCode: 1,
+          error: `Could not start "${config.cmd}": ${err.message}. Is it installed and on your PATH?`,
         });
-        return;
-      }
-
-      resolve({ stdout, stderr, exitCode: code ?? 1 });
-    });
-
-    child.on('error', async (err: NodeJS.ErrnoException) => {
-      clearTimeout(timer);
-      try { await fs.unlink(tmpFile); } catch { /* ignore */ }
-
-      if (err.code === 'ENOENT' && config.cmd === 'python3') {
-        resolve(spawnProcess(code, { ...config, cmd: 'python' }));
-        return;
-      }
-
+      });
+    }).catch((e: unknown) => {
       resolve({
         stdout: '',
         stderr: '',
         exitCode: 1,
-        error: `Could not start "${config.cmd}": ${err.message}. Is it installed and on your PATH?`,
+        error: `Could not write temp file: ${e instanceof Error ? e.message : String(e)}`,
       });
     });
   });
+
+  return {
+    result,
+    kill: () => {
+      if (activeChild) {
+        activeChild.kill('SIGTERM');
+        setTimeout(() => { activeChild?.kill('SIGKILL'); }, 500);
+      }
+    },
+  };
 }
