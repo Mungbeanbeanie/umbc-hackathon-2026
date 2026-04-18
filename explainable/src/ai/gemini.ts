@@ -29,7 +29,12 @@ ${contextSnippet}
 Instructions:
 1. "title": A 4-6 word phrase describing what this specific code block does (e.g. "fetch user data from API", "recursive binary search function", "filter even numbers from list"). Be concrete — use actual variable or function names if helpful.
 2. "explanation": In 2-3 sentences, describe what the SELECTED CODE does at a high level. Name the outer construct (loop, class, function, etc.) and its overall purpose. Do NOT explain internal logic, individual conditions, or implementation details.
-3. "scaffold": Show ONLY the outer construct shell in ${language} — just the opening line and closing brace/keyword of the loop, class, function, or block. Replace the entire body with a single "# TODO: your logic here" comment. Do NOT include any internal logic. Maximum 6 lines.
+3. "scaffold": Write a simple, fully runnable ${language} example of the SAME outer construct. Rules:
+   - Use the same construct type (for-loop → for-loop, while-loop → while-loop, class → class, function → function, etc.)
+   - Use small hardcoded values (e.g. loop 3-5 times, a list of 3 items)
+   - Replace ALL internal logic with a single comment (e.g. "// your logic here") plus one simple print/console.log/System.out.println so it produces visible output when run
+   - No helper functions, no imports, no complex expressions — just the construct + print
+   - Maximum 8 lines. Must be copy-paste runnable.
 
 Respond with ONLY this JSON (no markdown fences, no extra keys):
 {"title": "...", "explanation": "...", "scaffold": "..."}`;
