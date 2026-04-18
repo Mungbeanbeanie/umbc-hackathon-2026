@@ -65,6 +65,7 @@ export class ExplainPanel {
     const column = vscode.ViewColumn.Beside;
     if (ExplainPanel.currentPanel) {
       ExplainPanel.currentPanel._panel.reveal(column);
+      ExplainPanel.currentPanel._panel.webview.postMessage({ type: 'loading', language });
     } else {
       const panel = vscode.window.createWebviewPanel(
         'explainablePanel',
@@ -73,48 +74,9 @@ export class ExplainPanel {
         { enableScripts: true, retainContextWhenHidden: true },
       );
       ExplainPanel.currentPanel = new ExplainPanel(panel);
+      ExplainPanel.currentPanel._panel.webview.html = ExplainPanel._shellHtml();
     }
     ExplainPanel.currentPanel._panel.title = `Explainable: ${language}`;
-    ExplainPanel.currentPanel._panel.webview.html = ExplainPanel._loadingHtml(language);
-  }
-
-  private static _loadingHtml(language: string): string {
-    const nonce = getNonce();
-    return `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta http-equiv="Content-Security-Policy"
-    content="default-src 'none'; style-src 'unsafe-inline'; script-src 'nonce-${nonce}';">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <style>
-    html { height: 100%; }
-    body {
-      display: flex; align-items: center; justify-content: center;
-      height: 100%;
-      font-family: var(--vscode-font-family, sans-serif);
-      background: var(--vscode-editor-background);
-      color: var(--vscode-editor-foreground);
-    }
-    .loading { display: flex; flex-direction: column; align-items: center; gap: 14px; opacity: 0.7; }
-    .spinner {
-      width: 28px; height: 28px;
-      border: 2px solid var(--vscode-panel-border, #444);
-      border-top-color: var(--vscode-focusBorder, #007fd4);
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
-    p { font-size: 13px; margin: 0; }
-  </style>
-</head>
-<body>
-  <div class="loading">
-    <div class="spinner"></div>
-    <p>Explaining ${escapeHtml(language)} code&hellip;</p>
-  </div>
-</body>
-</html>`;
   }
 
   static createOrShow(
@@ -141,6 +103,7 @@ export class ExplainPanel {
         { enableScripts: true, retainContextWhenHidden: true },
       );
       ExplainPanel.currentPanel = new ExplainPanel(panel);
+      ExplainPanel.currentPanel._panel.webview.html = ExplainPanel._shellHtml();
       ExplainPanel.currentPanel._update(result, label, language);
     }
 
@@ -158,10 +121,17 @@ export class ExplainPanel {
 
   private _update(result: GeminiResult, label: string, language: string): void {
     this._panel.title = `Explainable: ${label}`;
-    this._panel.webview.html = this._getHtml(result, label, language, result.runnable);
+    this._panel.webview.postMessage({
+      type: 'update',
+      label,
+      explanation: result.explanation,
+      scaffold: result.scaffold,
+      runnable: result.runnable ?? '',
+      language,
+    });
   }
 
-  private _getHtml(result: GeminiResult, label: string, language: string, runnable = ''): string {
+  private static _shellHtml(): string {
     const nonce = getNonce();
     const explanation = escapeHtml(result.explanation);
 
@@ -190,24 +160,43 @@ export class ExplainPanel {
 <head>
   <meta charset="UTF-8">
   <meta http-equiv="Content-Security-Policy"
-    content="default-src 'none';
-             style-src 'unsafe-inline';
-             script-src 'nonce-${nonce}';">
+    content="default-src 'none'; style-src 'unsafe-inline'; script-src 'nonce-${nonce}';">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Explainable</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-
-    html { height: 100%; }
+    html, body { height: 100%; }
     body {
       display: flex;
       flex-direction: column;
-      height: 100%;
       font-family: var(--vscode-font-family, sans-serif);
       font-size: var(--vscode-font-size, 13px);
       background: var(--vscode-editor-background);
       color: var(--vscode-editor-foreground);
     }
+
+    /* Loading state */
+    #loading {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      flex: 1;
+      gap: 14px;
+      opacity: 0.7;
+    }
+    .spinner {
+      width: 28px; height: 28px;
+      border: 2px solid var(--vscode-panel-border, #444);
+      border-top-color: var(--vscode-focusBorder, #007fd4);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #loading p { font-size: 13px; }
+
+    /* Content state */
+    #content { display: none; flex-direction: column; flex: 1; overflow: hidden; }
 
     header {
       padding: 10px 16px;
@@ -216,6 +205,7 @@ export class ExplainPanel {
       font-size: 14px;
       letter-spacing: 0.03em;
       opacity: 0.85;
+      flex-shrink: 0;
     }
 
     .split {
@@ -233,9 +223,7 @@ export class ExplainPanel {
       gap: 10px;
     }
 
-    .pane + .pane {
-      border-left: 1px solid var(--vscode-panel-border, #444);
-    }
+    .pane + .pane { border-left: 1px solid var(--vscode-panel-border, #444); }
 
     .pane-title {
       font-size: 11px;
@@ -243,6 +231,7 @@ export class ExplainPanel {
       text-transform: uppercase;
       letter-spacing: 0.08em;
       opacity: 0.6;
+      flex-shrink: 0;
     }
 
     #explanation {
@@ -301,16 +290,10 @@ export class ExplainPanel {
       font-size: 13px;
       font-weight: 500;
       align-self: flex-start;
+      flex-shrink: 0;
     }
-
-    #runBtn:hover {
-      background: var(--vscode-button-hoverBackground, #1177bb);
-    }
-
-    #runBtn:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
+    #runBtn:hover { background: var(--vscode-button-hoverBackground, #1177bb); }
+    #runBtn:disabled { opacity: 0.5; cursor: not-allowed; }
 
     .output-label {
       font-size: 11px;
@@ -318,11 +301,11 @@ export class ExplainPanel {
       text-transform: uppercase;
       letter-spacing: 0.08em;
       opacity: 0.6;
+      flex-shrink: 0;
     }
 
-    #exit-code { font-size: 11px; margin-top: 2px; color: var(--vscode-descriptionForeground); }
+    #exit-code { font-size: 11px; margin-top: 2px; color: var(--vscode-descriptionForeground); flex-shrink: 0; }
     #exit-code.fail { color: var(--vscode-terminal-ansiRed, #f48771); }
-    #output.has-error { color: var(--vscode-terminal-ansiRed, #f48771); }
     #output {
       flex: 0 0 120px;
       overflow-y: auto;
@@ -335,62 +318,111 @@ export class ExplainPanel {
       font-size: 12px;
       white-space: pre-wrap;
     }
+    #output.has-error { color: var(--vscode-terminal-ansiRed, #f48771); }
   </style>
 </head>
 <body>
-  <header>Explainable &mdash; ${escapeHtml(label)}</header>
-  <div class="split">
-    <div class="pane">
-      <div class="pane-title">&#x1F4A1; What this does</div>
-      <div id="explanation">${explanation}</div>
-    </div>
-    <div class="pane">
-      <div class="pane-title">&#x25B6; Try it yourself</div>
-      <pre class="code-block"><code>${highlightedScaffold}</code></pre>
-      <button id="runBtn">&#x25B6; Run</button>
-      <div class="output-label">Output</div>
-      <pre id="output">Press Run to see output...</pre>
-      <div id="exit-code"></div>
+  <div id="loading">
+    <div class="spinner"></div>
+    <p id="loading-text">Analyzing code&hellip;</p>
+  </div>
+  <div id="content">
+    <header id="header"></header>
+    <div class="split">
+      <div class="pane">
+        <div class="pane-title">&#x1F4A1; What this does</div>
+        <div id="explanation"></div>
+      </div>
+      <div class="pane">
+        <div class="pane-title">&#x25B6; Try it yourself</div>
+        <textarea id="scaffold" spellcheck="false"></textarea>
+        <pre class="code-block"><code>${highlightedScaffold}</code></pre>
+        <button id="runBtn">&#x25B6; Run</button>
+        <div class="output-label">Output</div>
+        <pre id="output">Press Run to see output&hellip;</pre>
+        <div id="exit-code"></div>
+      </div>
     </div>
   </div>
   <script nonce="${nonce}">
     const vscode = acquireVsCodeApi();
-    const language = ${JSON.stringify(language)};
-    const runnableCode = ${JSON.stringify(runnable)};
 
-    const runBtn = document.getElementById('runBtn');
-    const outputEl = document.getElementById('output');
+    let runnableCode = '';
+    let currentLanguage = '';
+
+    const loadingEl  = document.getElementById('loading');
+    const loadingTxt = document.getElementById('loading-text');
+    const contentEl  = document.getElementById('content');
+    const headerEl   = document.getElementById('header');
+    const explanationEl = document.getElementById('explanation');
+    const scaffoldEl = document.getElementById('scaffold');
+    const runBtn     = document.getElementById('runBtn');
+    const outputEl   = document.getElementById('output');
     const exitCodeEl = document.getElementById('exit-code');
-
-    runBtn.addEventListener('click', () => {
-      runBtn.disabled = true;
-      runBtn.textContent = 'Running...';
-      outputEl.textContent = '';
-      outputEl.className = '';
-      exitCodeEl.textContent = '';
-      exitCodeEl.className = '';
-      vscode.postMessage({ type: 'run', code: runnableCode, language });
-    });
 
     window.addEventListener('message', event => {
       const msg = event.data;
-      if (msg.type !== 'runResult') { return; }
-      const r = msg.result;
-      runBtn.disabled = false;
-      runBtn.innerHTML = '&#x25B6; Run';
-      if (r.error) {
-        outputEl.textContent = r.error;
-        outputEl.className = 'has-error';
-        exitCodeEl.textContent = '';
-      } else {
-        const parts = [];
-        if (r.stdout) { parts.push(r.stdout); }
-        if (r.stderr) { parts.push('--- stderr ---\\n' + r.stderr); }
-        outputEl.textContent = parts.join('\\n') || '(no output)';
-        outputEl.className = r.exitCode !== 0 ? 'has-error' : '';
-        exitCodeEl.textContent = 'exit ' + r.exitCode;
-        exitCodeEl.className = r.exitCode === 0 ? '' : 'fail';
+
+      if (msg.type === 'loading') {
+        contentEl.style.display  = 'none';
+        loadingEl.style.display  = 'flex';
+        loadingTxt.textContent   = 'Analyzing ' + msg.language + ' code\u2026';
+        outputEl.textContent     = 'Press Run to see output\u2026';
+        outputEl.className       = '';
+        exitCodeEl.textContent   = '';
+        exitCodeEl.className     = '';
+        return;
       }
+
+      if (msg.type === 'update') {
+        headerEl.textContent      = 'Explainable \u2014 ' + msg.label;
+        explanationEl.textContent = msg.explanation;
+        scaffoldEl.value          = msg.scaffold;
+        runnableCode              = msg.runnable || '';
+        currentLanguage           = msg.language;
+        runBtn.disabled           = false;
+        runBtn.innerHTML          = '&#x25B6; Run';
+        outputEl.textContent      = 'Press Run to see output\u2026';
+        outputEl.className        = '';
+        exitCodeEl.textContent    = '';
+        exitCodeEl.className      = '';
+        loadingEl.style.display   = 'none';
+        contentEl.style.display   = 'flex';
+        contentEl.style.flexDirection = 'column';
+        contentEl.style.flex      = '1';
+        contentEl.style.overflow  = 'hidden';
+        return;
+      }
+
+      if (msg.type === 'runResult') {
+        const r = msg.result;
+        runBtn.disabled  = false;
+        runBtn.innerHTML = '&#x25B6; Run';
+        if (r.error) {
+          outputEl.textContent = r.error;
+          outputEl.className   = 'has-error';
+          exitCodeEl.textContent = '';
+        } else {
+          const parts = [];
+          if (r.stdout) { parts.push(r.stdout); }
+          if (r.stderr) { parts.push('--- stderr ---\\n' + r.stderr); }
+          outputEl.textContent = parts.join('\\n') || '(no output)';
+          outputEl.className   = r.exitCode !== 0 ? 'has-error' : '';
+          exitCodeEl.textContent = 'exit ' + r.exitCode;
+          exitCodeEl.className   = r.exitCode === 0 ? '' : 'fail';
+        }
+      }
+    });
+
+    runBtn.addEventListener('click', () => {
+      if (!runnableCode) { return; }
+      runBtn.disabled      = true;
+      runBtn.textContent   = 'Running...';
+      outputEl.textContent = '';
+      outputEl.className   = '';
+      exitCodeEl.textContent = '';
+      exitCodeEl.className   = '';
+      vscode.postMessage({ type: 'run', code: runnableCode, language: currentLanguage });
     });
   </script>
 </body>
@@ -409,4 +441,3 @@ export class ExplainPanel {
     this._disposables = [];
   }
 }
-
